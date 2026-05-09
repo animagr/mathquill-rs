@@ -94,9 +94,27 @@ The `RenderCache` in `src/ui/renderer.rs` caches the last rendered LaTeX string 
 - **Display modes** -- Inline vs. display math sizing
 - **Accessibility** -- Screen reader support
 
+## Prerequisites
+
+This project depends on [RaTeX](https://github.com/erweixin/RaTeX) via local path references (`../RaTeX/`). Clone both repos as siblings:
+
+```bash
+git clone https://github.com/erweixin/RaTeX.git
+git clone https://github.com/animagr/mathquill-rs.git
+```
+
+Your directory layout should be:
+
+```
+parent/
+  RaTeX/
+  mathquill-rs/
+```
+
 ## Building
 
 ```bash
+cd mathquill-rs
 cargo build
 cargo clippy --all-targets -- -D warnings
 cargo test
