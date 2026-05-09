@@ -241,6 +241,109 @@ impl Cursor {
         }
     }
 
+    /// Move cursor to the start of the current `Seq`.
+    pub fn move_to_start(&mut self) {
+        self.set_seq_pos(0);
+    }
+
+    /// Move cursor to the end of the current `Seq`.
+    pub fn move_to_end(&mut self, root: &MathNode) {
+        let seq_len = self.resolve(root).map_or(0, |r| r.seq.len());
+        self.set_seq_pos(seq_len);
+    }
+
+    /// Tab: move to the next sibling slot in the parent compound node,
+    /// or exit right if at the last slot.
+    pub fn tab(&mut self, root: &MathNode) {
+        if self.path.len() < 2 {
+            return;
+        }
+        let parent_idx = self.path.len() - 2;
+        let parent_step = self.path[parent_idx];
+        let next = match parent_step {
+            CursorStep::Numerator => Some(CursorStep::Denominator),
+            CursorStep::Base => {
+                if let Some(node) = self.resolve_parent_node(root) {
+                    match node {
+                        MathNode::Sub { .. } => Some(CursorStep::Subscript),
+                        MathNode::Sup { .. } | MathNode::SupSub { .. } => Some(CursorStep::Exponent),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            }
+            CursorStep::Exponent => {
+                if let Some(node) = self.resolve_parent_node(root) {
+                    if matches!(node, MathNode::SupSub { .. }) {
+                        Some(CursorStep::Subscript)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            CursorStep::Index => Some(CursorStep::Radicand),
+            _ => None,
+        };
+
+        if let Some(next_step) = next {
+            self.path[parent_idx] = next_step;
+            self.set_seq_pos(0);
+        } else {
+            self.exit_right(root);
+        }
+    }
+
+    /// Shift+Tab: move to the previous sibling slot in the parent compound node,
+    /// or exit left if at the first slot.
+    pub fn shift_tab(&mut self, root: &MathNode) {
+        if self.path.len() < 2 {
+            return;
+        }
+        let parent_idx = self.path.len() - 2;
+        let parent_step = self.path[parent_idx];
+        let prev = match parent_step {
+            CursorStep::Denominator => Some(CursorStep::Numerator),
+            CursorStep::Subscript => {
+                if let Some(node) = self.resolve_parent_node(root) {
+                    if matches!(node, MathNode::SupSub { .. }) {
+                        Some(CursorStep::Exponent)
+                    } else {
+                        Some(CursorStep::Base)
+                    }
+                } else {
+                    None
+                }
+            }
+            CursorStep::Exponent => Some(CursorStep::Base),
+            CursorStep::Radicand => {
+                if let Some(node) = self.resolve_parent_node(root) {
+                    if matches!(node, MathNode::Sqrt { index: Some(_), .. }) {
+                        Some(CursorStep::Index)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+
+        if let Some(prev_step) = prev {
+            let end_pos = {
+                self.path[parent_idx] = prev_step;
+                self.set_seq_pos(0);
+                self.resolve(root).map_or(0, |r| r.seq.len())
+            };
+            self.set_seq_pos(end_pos);
+        } else {
+            self.exit_left(root);
+        }
+    }
+
     fn set_seq_pos(&mut self, pos: usize) {
         if let Some(last) = self.path.last_mut() {
             *last = CursorStep::SeqPos(pos);
@@ -471,6 +574,81 @@ mod tests {
                 CursorStep::SeqPos(0),
             ]
         );
+    }
+
+    #[test]
+    fn tab_moves_numerator_to_denominator() {
+        let root = MathNode::Seq(vec![MathNode::Fraction {
+            num: Box::new(MathNode::Seq(vec![sym("a")])),
+            den: Box::new(MathNode::Seq(vec![sym("b")])),
+        }]);
+        let mut cursor = Cursor {
+            path: vec![
+                CursorStep::SeqPos(0),
+                CursorStep::Numerator,
+                CursorStep::SeqPos(0),
+            ],
+        };
+        cursor.tab(&root);
+        assert_eq!(
+            cursor.path(),
+            &[
+                CursorStep::SeqPos(0),
+                CursorStep::Denominator,
+                CursorStep::SeqPos(0),
+            ]
+        );
+    }
+
+    #[test]
+    fn tab_exits_denominator() {
+        let root = MathNode::Seq(vec![MathNode::Fraction {
+            num: Box::new(MathNode::Seq(vec![sym("a")])),
+            den: Box::new(MathNode::Seq(vec![sym("b")])),
+        }]);
+        let mut cursor = Cursor {
+            path: vec![
+                CursorStep::SeqPos(0),
+                CursorStep::Denominator,
+                CursorStep::SeqPos(1),
+            ],
+        };
+        cursor.tab(&root);
+        assert_eq!(cursor.path(), &[CursorStep::SeqPos(1)]);
+    }
+
+    #[test]
+    fn shift_tab_denominator_to_numerator() {
+        let root = MathNode::Seq(vec![MathNode::Fraction {
+            num: Box::new(MathNode::Seq(vec![sym("a")])),
+            den: Box::new(MathNode::Seq(vec![sym("b")])),
+        }]);
+        let mut cursor = Cursor {
+            path: vec![
+                CursorStep::SeqPos(0),
+                CursorStep::Denominator,
+                CursorStep::SeqPos(0),
+            ],
+        };
+        cursor.shift_tab(&root);
+        assert_eq!(
+            cursor.path(),
+            &[
+                CursorStep::SeqPos(0),
+                CursorStep::Numerator,
+                CursorStep::SeqPos(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn home_end() {
+        let root = MathNode::Seq(vec![sym("a"), sym("b"), sym("c")]);
+        let mut cursor = Cursor::at_root_pos(2);
+        cursor.move_to_start();
+        assert_eq!(cursor.seq_pos(), 0);
+        cursor.move_to_end(&root);
+        assert_eq!(cursor.seq_pos(), 3);
     }
 
     #[test]

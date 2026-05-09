@@ -134,7 +134,12 @@ impl MathWidget {
                     modifiers,
                     ..
                 } => {
-                    self.handle_key(*key, *modifiers);
+                    self.handle_key(*key, *modifiers, ui);
+                    self.cursor_visible = true;
+                    self.last_blink = ui.input(|i| i.time);
+                }
+                egui::Event::Paste(text) => {
+                    self.editor.paste_latex(text);
                     self.cursor_visible = true;
                     self.last_blink = ui.input(|i| i.time);
                 }
@@ -144,14 +149,28 @@ impl MathWidget {
     }
 
     /// Handle a single key press.
-    fn handle_key(&mut self, key: Key, modifiers: egui::Modifiers) {
+    fn handle_key(&mut self, key: Key, modifiers: egui::Modifiers, ui: &egui::Ui) {
         match key {
+            Key::ArrowLeft if modifiers.shift => self.editor.select_left(),
+            Key::ArrowRight if modifiers.shift => self.editor.select_right(),
             Key::ArrowLeft => self.editor.move_left(),
             Key::ArrowRight => self.editor.move_right(),
             Key::ArrowUp => self.editor.move_up(),
             Key::ArrowDown => self.editor.move_down(),
             Key::Backspace => self.editor.backspace(),
             Key::Delete => self.editor.delete_forward(),
+            Key::A if modifiers.command => self.editor.select_all(),
+            Key::C if modifiers.command => {
+                if let Some(latex) = self.editor.copy_selection_latex() {
+                    ui.ctx().copy_text(latex);
+                }
+            }
+            Key::X if modifiers.command => {
+                if let Some(latex) = self.editor.copy_selection_latex() {
+                    ui.ctx().copy_text(latex);
+                    self.editor.delete_selection();
+                }
+            }
             Key::Z if modifiers.command => {
                 if modifiers.shift {
                     self.editor.redo();
@@ -160,6 +179,10 @@ impl MathWidget {
                 }
             }
             Key::Y if modifiers.command => self.editor.redo(),
+            Key::Home => self.editor.move_home(),
+            Key::End => self.editor.move_end(),
+            Key::Tab if modifiers.shift => self.editor.shift_tab(),
+            Key::Tab => self.editor.tab(),
             _ => {}
         }
     }

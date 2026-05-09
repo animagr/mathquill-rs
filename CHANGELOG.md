@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.1.1] - 2026-05-09
+
+### Added
+
+- Selection model: Shift+Left/Right to select, Ctrl+A to select all, backspace/delete/typing replaces selection
+- Wrap selection in structures: select text then press `/`, `^`, `_`, `(`, `[`, `{`, `|` to wrap in fraction, sup/sub, or delimiters
+- Clipboard support: Ctrl+C to copy, Ctrl+X to cut, Ctrl+V to paste (as LaTeX characters)
+- Auto-operators: typing `sin`, `cos`, `tan`, `log`, `ln`, `lim`, `exp`, `min`, `max`, `det`, `gcd`, etc. auto-converts to `\sin`, `\cos`, etc.
+- Auto-symbols: Greek letters (`alpha`, `beta`, `pi`, `theta`, `sigma`, etc.), relations (`leq`, `geq`, `neq`, `approx`), arrows (`to`, `implies`, `iff`, `mapsto`, `gets`), set theory (`subset`, `supset`, `cup`, `cap`, `emptyset`), misc (`infty`, `nabla`, `pm`, `times`, `div`, `cdot`, `ldots`, `cdots`, `propto`, `perp`, `parallel`)
+- Auto-structures: typing `sqrt` creates `\sqrt{}`, `abs` creates `|...|`, `norm` creates `||...||`, `sum`/`prod` creates large operators with subscript, `int` creates `\int`
+- Smart auto-command matching: longest match wins across all tables; prefix suppression prevents short triggers (e.g., `mp`) from firing inside partially-typed longer triggers (e.g., `implies`)
+- Tab / Shift+Tab navigation between fields in compound nodes (numerator↔denominator, base↔exponent↔subscript, index↔radicand)
+- Home/End keys to jump to start/end of current sequence
+- Curly brace `{`, pipe `|` delimiters, plus `!`, `%`, `:`, `;`, `~` (as `\sim`) character inputs
+- Nth-root insertion (`\sqrt[n]{}`) via `Editor::insert_nth_root` and toolbar button
+- `\text{}` block insertion via `Editor::insert_text_block`
+- Delete-forward now unwraps compound nodes (like backspace), spilling contents inline
+- Backspace unwraps `SupSub` and `Sqrt` nodes; exits left when at position 0 inside compound nodes
+- Undo (`Ctrl+Z`) and redo (`Ctrl+Shift+Z` / `Ctrl+Y`) keyboard shortcuts
+- Toolbar in demo app with buttons for fraction, superscript, subscript, sqrt, nth-root, brackets, and abs
+- Help panels with keyboard shortcuts and auto-command reference
+- 50 new unit tests (86 total)
+
 ## [0.1.0] - 2026-05-09
 
 ### Added
@@ -23,3 +48,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Undo/redo snapshot stack (200-level depth)
 - eframe demo application showing the widget with live LaTeX output
 - 36 unit tests across all modules
+
+[0.1.1]: https://github.com/animagr/mathquill-rs/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/animagr/mathquill-rs/releases/tag/v0.1.0

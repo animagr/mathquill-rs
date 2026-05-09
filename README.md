@@ -70,23 +70,28 @@ The `RenderCache` in `src/ui/renderer.rs` caches the last rendered LaTeX string 
 
 - **Math AST** (`src/editor/tree.rs`) -- `MathNode` enum with `Seq`, `Symbol`, `Fraction`, `Sqrt`, `Sup`, `Sub`, `SupSub`, `Parens`, `Style`, `Text`
 - **Path-based cursor** (`src/editor/cursor.rs`) -- Navigation into/out of compound structures, up/down movement between fraction numerator/denominator and sup/sub
-- **Input handling** (`src/editor/input.rs`) -- Character dispatch (`/` for fraction, `^`/`_` for scripts, `(` `[` for parens), backspace with compound node unwrapping
+- **Input handling** (`src/editor/input.rs`) -- Character dispatch (`/` for fraction, `^`/`_` for scripts, `(` `[` `{` `|` for delimiters), backspace and delete-forward with compound node unwrapping
 - **Structured commands** (`src/editor/commands.rs`) -- LiveFraction leftward scan, Sup/Sub creation with Sup-to-SupSub upgrade
+- **Selection** (`src/editor/selection.rs`) -- Shift+arrow selection, Ctrl+A select all, backspace/delete/typing replaces selection, wrap selection in structures (`/`, `^`, `_`, `(`, etc.)
+- **Clipboard** -- Ctrl+C copy, Ctrl+X cut, Ctrl+V paste (replays characters through the editor)
+- **Auto-operators** (`src/editor/auto_cmds.rs`) -- Typing `sin`, `cos`, `tan`, `log`, `ln`, `lim`, `exp`, `min`, `max`, `det`, `gcd`, etc. auto-converts to `\sin`, `\cos`, etc.
+- **Auto-symbols** -- Typing `alpha`, `beta`, `pi`, `theta`, `sigma`, `infty`, `nabla`, `leq`, `geq`, `neq`, `approx`, `pm`, `times`, `div`, `to`, `implies`, `iff`, `subset`, `cup`, `cdot`, etc. auto-converts to the corresponding LaTeX command
+- **Auto-structures** -- Typing `sqrt` creates `\sqrt{}` with cursor inside, `abs` creates `|...|`, `norm` creates `||...||`, `sum`/`prod` creates large operators with subscript, `int` creates `\int`
 - **LaTeX serializer** (`src/latex.rs`) -- Full round-trip from AST to LaTeX string
 - **RaTeX rendering** (`src/ui/renderer.rs`) -- Cached render pipeline with PNG output
 - **egui widget** (`src/ui/math_widget.rs`) -- Focus, keyboard input, cursor blink, texture display
-- **Undo/redo** (`src/editor/undo.rs`) -- Snapshot stack with push/pop/undo/redo
-- **36 unit tests** across all modules
+- **Tab / Shift+Tab navigation** -- Tab moves forward between fields in compound nodes (numerator→denominator, base→exponent→subscript, index→radicand); Shift+Tab moves backward
+- **Home/End keys** -- Jump to start/end of current sequence
+- **Undo/redo** (`src/editor/undo.rs`) -- Snapshot stack with 200-level depth, Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y
+- **Toolbar** (`src/app.rs`) -- Demo app buttons for fraction, superscript, subscript, sqrt, nth-root, parentheses, brackets, abs
+- **86 unit tests** across all modules
 
 ### Not yet implemented
 
-- **Selection** -- Selecting ranges of nodes, cut/copy/paste
 - **Click-to-place cursor** -- Mapping mouse coordinates to AST node positions (requires DisplayList-to-AST mapping)
 - **Cursor overlay rendering** -- Drawing the cursor at the correct position within the rendered math (current placeholder uses a fixed-width estimate)
-- **Auto-operators** -- Typing `sin` automatically converting to `\sin`
-- **Greek letter shortcuts** -- Typing `alpha` converting to `\alpha`
 - **Matrices and environments** -- `\begin{pmatrix}...\end{pmatrix}`
-- **Toolbar / button input** -- GUI buttons for inserting structures
+- **Display modes** -- Inline vs. display math sizing
 - **Accessibility** -- Screen reader support
 
 ## Building
@@ -103,6 +108,34 @@ To run the demo app:
 cargo run
 ```
 
+The demo window has a toolbar, a math editor (click to focus), and a live LaTeX output display. Type math naturally -- `/` for fractions, `^`/`_` for scripts, letter sequences like `sin`, `alpha`, `sqrt` auto-convert. Use Tab to move between fields, arrow keys to navigate, and Escape to unfocus. Collapsible panels at the bottom list all keyboard shortcuts and auto-commands.
+
+### Testing the editor model
+
+Run all 86 tests:
+
+```bash
+cargo test
+```
+
+Run tests for a specific module:
+
+```bash
+cargo test editor::input       # Input handling, auto-commands, selection
+cargo test editor::cursor      # Cursor navigation, tab, home/end
+cargo test editor::auto_cmds   # Auto-operator/symbol/structure detection
+cargo test editor::commands    # Fraction/script insertion logic
+cargo test editor::selection   # Selection range and node extraction
+cargo test latex               # LaTeX serialization
+cargo test ui::renderer        # RaTeX render pipeline
+```
+
+Run a single test by name:
+
+```bash
+cargo test editor::input::tests::wrap_selection_in_fraction
+```
+
 ## Project structure
 
 ```
@@ -117,6 +150,8 @@ src/
     cursor.rs         Path-based cursor with CursorStep enum
     input.rs          Editor struct, character/key dispatch
     commands.rs       Fraction/script insertion logic
+    selection.rs      Selection model (anchor + range within a Seq)
+    auto_cmds.rs      Auto-operators and auto-symbols detection
     undo.rs           Undo/redo snapshot stack
   ui/
     mod.rs
