@@ -96,6 +96,18 @@ The `RenderCache` in `src/ui/renderer.rs` caches the last rendered LaTeX string 
 
 ## Prerequisites
 
+### Rust toolchain
+
+Install Rust via [rustup](https://rustup.rs/):
+
+- **Windows**: Download and run [rustup-init.exe](https://win.rustup.rs/x86_64). This installs `rustc`, `cargo`, and `clippy`. You will also need the [Visual Studio C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (select "Desktop development with C++" workload).
+- **macOS**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+- **Linux**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+
+Verify with `rustc --version` (requires Rust 1.75+).
+
+### RaTeX
+
 This project depends on [RaTeX](https://github.com/erweixin/RaTeX) via local path references (`../RaTeX/`). Clone both repos as siblings:
 
 ```bash
