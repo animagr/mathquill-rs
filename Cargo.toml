@@ -1,0 +1,38 @@
+[package]
+name = "mathquill-rs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Native WYSIWYG math editor — MathQuill ported to Rust with RaTeX rendering"
+license = "MIT"
+
+[dependencies]
+ratex-lexer = { path = "../RaTeX/crates/ratex-lexer" }
+ratex-parser = { path = "../RaTeX/crates/ratex-parser" }
+ratex-layout = { path = "../RaTeX/crates/ratex-layout" }
+ratex-render = { path = "../RaTeX/crates/ratex-render", features = ["embed-fonts"] }
+ratex-svg = { path = "../RaTeX/crates/ratex-svg" }
+ratex-types = { path = "../RaTeX/crates/ratex-types" }
+ratex-font = { path = "../RaTeX/crates/ratex-font" }
+ratex-font-loader = { path = "../RaTeX/crates/ratex-font-loader", features = ["embed-fonts"] }
+
+eframe = "0.31"
+egui = "0.31"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+anyhow = "1.0"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[dev-dependencies]
+proptest = "1.0"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
+
+[profile.release]
+lto = true
+codegen-units = 1

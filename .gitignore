@@ -1,0 +1,12 @@
+# Build artifacts
+/target/
+
+# Claude
+.claude/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
