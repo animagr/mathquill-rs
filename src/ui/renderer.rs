@@ -5,6 +5,7 @@ use anyhow::{Context, Result};
 use ratex_layout::{layout, to_display_list, LayoutOptions};
 use ratex_parser::parser::parse;
 use ratex_render::{render_to_png, RenderOptions};
+use ratex_types::color::Color;
 
 /// Cached render state: avoids re-rendering when the LaTeX hasn't changed.
 pub struct RenderCache {
@@ -26,6 +27,7 @@ impl RenderCache {
                 padding: 10.0,
                 font_dir: String::new(),
                 device_pixel_ratio: 2.0,
+                background_color: Color::WHITE,
             },
             layout_opts: LayoutOptions::default(),
         }
