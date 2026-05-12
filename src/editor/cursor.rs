@@ -24,6 +24,8 @@ pub enum CursorStep {
     Index,
     /// Inside a `Parens` body or `Style` body.
     Inner,
+    /// Inside a matrix cell.
+    MatrixCell { row: usize, col: usize },
 }
 
 /// Direction for cursor movement.
@@ -203,6 +205,10 @@ impl Cursor {
             CursorStep::Exponent | CursorStep::Base => {
                 self.exit_left(root);
             }
+            CursorStep::MatrixCell { row, col } if row > 0 => {
+                self.path[parent_idx] = CursorStep::MatrixCell { row: row - 1, col };
+                self.set_seq_pos(0);
+            }
             _ => {}
         }
     }
@@ -234,6 +240,14 @@ impl Cursor {
             }
             CursorStep::Base | CursorStep::Subscript => {
                 self.exit_right(root);
+            }
+            CursorStep::MatrixCell { row, col } => {
+                if let Some(node) = self.resolve_parent_node(root) {
+                    if let Some(next_row) = matrix_row_with_col(node, row + 1, col) {
+                        self.path[parent_idx] = CursorStep::MatrixCell { row: next_row, col };
+                        self.set_seq_pos(0);
+                    }
+                }
             }
             _ => {}
         }
@@ -285,6 +299,9 @@ impl Cursor {
                 }
             }
             CursorStep::Index => Some(CursorStep::Radicand),
+            CursorStep::MatrixCell { row, col } => self
+                .resolve_parent_node(root)
+                .and_then(|node| next_matrix_cell_step(node, row, col)),
             _ => None,
         };
 
@@ -329,6 +346,9 @@ impl Cursor {
                     None
                 }
             }
+            CursorStep::MatrixCell { row, col } => self
+                .resolve_parent_node(root)
+                .and_then(|node| previous_matrix_cell_step(node, row, col)),
             _ => None,
         };
 
@@ -445,6 +465,9 @@ fn descend(node: &MathNode, step: CursorStep) -> Option<&MathNode> {
         (MathNode::Parens { body, .. } | MathNode::Style { body, .. }, CursorStep::Inner) => {
             Some(body)
         }
+        (MathNode::Matrix { cells, .. }, CursorStep::MatrixCell { row, col }) => {
+            cells.get(row).and_then(|matrix_row| matrix_row.get(col))
+        }
         _ => None,
     }
 }
@@ -476,6 +499,9 @@ fn descend_mut(node: &mut MathNode, step: CursorStep) -> Option<&mut MathNode> {
         (MathNode::Parens { body, .. } | MathNode::Style { body, .. }, CursorStep::Inner) => {
             Some(body)
         }
+        (MathNode::Matrix { cells, .. }, CursorStep::MatrixCell { row, col }) => cells
+            .get_mut(row)
+            .and_then(|matrix_row| matrix_row.get_mut(col)),
         _ => None,
     }
 }
@@ -490,6 +516,7 @@ fn try_enter_left(node: &MathNode, path: &mut Vec<CursorStep>, _idx: usize) -> b
         MathNode::Sup { .. } | MathNode::SupSub { .. } => CursorStep::Exponent,
         MathNode::Sub { .. } => CursorStep::Subscript,
         MathNode::Parens { .. } | MathNode::Style { .. } => CursorStep::Inner,
+        MathNode::Matrix { .. } => CursorStep::MatrixCell { row: 0, col: 0 },
         _ => return false,
     };
     path.push(slot);
@@ -508,6 +535,21 @@ fn try_enter_right(node: &MathNode, path: &mut Vec<CursorStep>, _idx: usize) -> 
         MathNode::Parens { body, .. } | MathNode::Style { body, .. } => {
             (CursorStep::Inner, body.as_ref())
         }
+        MathNode::Matrix { cells, .. } => {
+            let Some(row) = cells.len().checked_sub(1) else {
+                return false;
+            };
+            let Some(col) = cells
+                .get(row)
+                .and_then(|matrix_row| matrix_row.len().checked_sub(1))
+            else {
+                return false;
+            };
+            let Some(child) = cells.get(row).and_then(|matrix_row| matrix_row.get(col)) else {
+                return false;
+            };
+            (CursorStep::MatrixCell { row, col }, child)
+        }
         _ => return false,
     };
     let len = child.as_seq().map_or(0, <[MathNode]>::len);
@@ -516,10 +558,58 @@ fn try_enter_right(node: &MathNode, path: &mut Vec<CursorStep>, _idx: usize) -> 
     true
 }
 
+fn next_matrix_cell_step(node: &MathNode, row: usize, col: usize) -> Option<CursorStep> {
+    let MathNode::Matrix { cells, .. } = node else {
+        return None;
+    };
+
+    let current_row = cells.get(row)?;
+    if col + 1 < current_row.len() {
+        return Some(CursorStep::MatrixCell { row, col: col + 1 });
+    }
+
+    let next_row = matrix_row_with_any_cell(cells, row + 1)?;
+    Some(CursorStep::MatrixCell {
+        row: next_row,
+        col: 0,
+    })
+}
+
+fn previous_matrix_cell_step(node: &MathNode, row: usize, col: usize) -> Option<CursorStep> {
+    let MathNode::Matrix { cells, .. } = node else {
+        return None;
+    };
+
+    if col > 0 {
+        return Some(CursorStep::MatrixCell { row, col: col - 1 });
+    }
+
+    let previous_row = (0..row)
+        .rev()
+        .find(|candidate| !cells[*candidate].is_empty())?;
+    let previous_col = cells.get(previous_row)?.len().checked_sub(1)?;
+    Some(CursorStep::MatrixCell {
+        row: previous_row,
+        col: previous_col,
+    })
+}
+
+fn matrix_row_with_col(node: &MathNode, start_row: usize, col: usize) -> Option<usize> {
+    let MathNode::Matrix { cells, .. } = node else {
+        return None;
+    };
+
+    (start_row..cells.len()).find(|row| cells[*row].get(col).is_some())
+}
+
+fn matrix_row_with_any_cell(cells: &[Vec<MathNode>], start_row: usize) -> Option<usize> {
+    (start_row..cells.len()).find(|row| !cells[*row].is_empty())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::editor::tree::SymbolData;
+    use crate::editor::tree::{MatrixKind, SymbolData};
 
     fn sym(ch: &str) -> MathNode {
         MathNode::Symbol(SymbolData::variable(ch))
@@ -706,5 +796,57 @@ mod tests {
                 CursorStep::SeqPos(0),
             ]
         );
+    }
+
+    #[test]
+    fn move_right_enters_matrix_first_cell() {
+        let root = MathNode::Seq(vec![MathNode::matrix(MatrixKind::Parenthesized, 2, 2)]);
+        let mut cursor = Cursor::new();
+
+        cursor.move_right(&root);
+
+        assert_eq!(
+            cursor.path(),
+            &[
+                CursorStep::SeqPos(0),
+                CursorStep::MatrixCell { row: 0, col: 0 },
+                CursorStep::SeqPos(0),
+            ],
+        );
+    }
+
+    #[test]
+    fn tab_moves_across_matrix_cells() {
+        let root = MathNode::Seq(vec![MathNode::matrix(MatrixKind::Parenthesized, 2, 2)]);
+        let mut cursor = Cursor::from_path(vec![
+            CursorStep::SeqPos(0),
+            CursorStep::MatrixCell { row: 0, col: 1 },
+            CursorStep::SeqPos(0),
+        ]);
+
+        cursor.tab(&root);
+
+        assert_eq!(
+            cursor.path(),
+            &[
+                CursorStep::SeqPos(0),
+                CursorStep::MatrixCell { row: 1, col: 0 },
+                CursorStep::SeqPos(0),
+            ],
+        );
+    }
+
+    #[test]
+    fn tab_exits_last_matrix_cell() {
+        let root = MathNode::Seq(vec![MathNode::matrix(MatrixKind::Parenthesized, 1, 1)]);
+        let mut cursor = Cursor::from_path(vec![
+            CursorStep::SeqPos(0),
+            CursorStep::MatrixCell { row: 0, col: 0 },
+            CursorStep::SeqPos(0),
+        ]);
+
+        cursor.tab(&root);
+
+        assert_eq!(cursor.path(), &[CursorStep::SeqPos(1)]);
     }
 }

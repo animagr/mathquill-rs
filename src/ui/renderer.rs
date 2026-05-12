@@ -2,18 +2,92 @@
 
 use anyhow::{Context, Result};
 
-use ratex_layout::{layout, to_display_list, LayoutOptions};
+use ratex_layout::{layout, to_display_list, LayoutBox, LayoutOptions};
 use ratex_parser::parser::parse;
 use ratex_render::{render_to_png, RenderOptions};
 use ratex_types::color::Color;
+use ratex_types::display_item::DisplayList;
 
 #[cfg(test)]
 const LATEX_AUTO_SYMBOL_WITH_TYPED_SPACE: &str = "\\alpha \\,";
 
+/// Render settings that affect the final PNG coordinate space.
+#[derive(Debug, Clone, Copy)]
+pub struct RenderMetrics {
+    font_size: f32,
+    padding: f32,
+    device_pixel_ratio: f32,
+}
+
+impl RenderMetrics {
+    /// Create render metrics from the options passed to `RaTeX`.
+    #[must_use]
+    pub fn from_options(options: &RenderOptions) -> Self {
+        Self {
+            font_size: options.font_size,
+            padding: options.padding,
+            device_pixel_ratio: options.device_pixel_ratio,
+        }
+    }
+
+    /// Font size in user units per em.
+    #[must_use]
+    pub fn font_size(self) -> f32 {
+        self.font_size
+    }
+
+    /// Output padding in user units.
+    #[must_use]
+    pub fn padding(self) -> f32 {
+        self.padding
+    }
+
+    /// Output device-pixel ratio.
+    #[must_use]
+    pub fn device_pixel_ratio(self) -> f32 {
+        self.device_pixel_ratio
+    }
+}
+
+/// Rendered math output and the layout metadata used to produce it.
+#[derive(Debug, Clone)]
+pub struct RenderedMath {
+    png_bytes: Vec<u8>,
+    layout_box: LayoutBox,
+    display_list: DisplayList,
+    metrics: RenderMetrics,
+}
+
+impl RenderedMath {
+    /// PNG bytes produced by the `RaTeX` renderer.
+    #[must_use]
+    pub fn png_bytes(&self) -> &[u8] {
+        &self.png_bytes
+    }
+
+    /// Structured box tree produced by `RaTeX` layout.
+    #[must_use]
+    pub fn layout_box(&self) -> &LayoutBox {
+        &self.layout_box
+    }
+
+    /// Flat drawing list produced from the layout box tree.
+    #[must_use]
+    pub fn display_list(&self) -> &DisplayList {
+        &self.display_list
+    }
+
+    /// Render settings used to produce this output.
+    #[must_use]
+    pub fn metrics(&self) -> RenderMetrics {
+        self.metrics
+    }
+}
+
 /// Cached render state: avoids re-rendering when the LaTeX hasn't changed.
 pub struct RenderCache {
     last_latex: String,
-    last_png: Vec<u8>,
+    last_rendered: Option<RenderedMath>,
     render_opts: RenderOptions,
     layout_opts: LayoutOptions,
 }
@@ -24,7 +98,7 @@ impl RenderCache {
     pub fn new() -> Self {
         Self {
             last_latex: String::new(),
-            last_png: Vec::new(),
+            last_rendered: None,
             render_opts: RenderOptions {
                 font_size: 40.0,
                 padding: 10.0,
@@ -36,33 +110,48 @@ impl RenderCache {
         }
     }
 
-    /// Render the given LaTeX string, returning PNG bytes.
+    /// Render the given LaTeX string, returning PNG bytes and layout metadata.
     /// Returns cached result if the LaTeX hasn't changed.
     ///
     /// # Errors
     ///
     /// Returns an error if parsing or rendering the LaTeX fails.
-    pub fn render(&mut self, latex: &str) -> Result<&[u8]> {
-        if latex == self.last_latex && !self.last_png.is_empty() {
-            return Ok(&self.last_png);
+    pub fn render(&mut self, latex: &str) -> Result<&RenderedMath> {
+        let cache_hit = latex == self.last_latex && self.last_rendered.is_some();
+        if cache_hit {
+            return self
+                .last_rendered
+                .as_ref()
+                .context("render cache was marked as a hit but was empty");
         }
 
-        let png = render_latex(latex, &self.layout_opts, &self.render_opts)?;
+        let rendered = render_latex(latex, &self.layout_opts, &self.render_opts)?;
         self.last_latex = latex.to_string();
-        self.last_png = png;
-        Ok(&self.last_png)
+        self.last_rendered = Some(rendered);
+
+        self.last_rendered
+            .as_ref()
+            .context("render cache was empty after rendering")
+    }
+
+    /// The most recently rendered math output, if any.
+    #[must_use]
+    pub fn last_rendered(&self) -> Option<&RenderedMath> {
+        self.last_rendered.as_ref()
     }
 
     /// Set the font size (user units per em).
     pub fn set_font_size(&mut self, size: f32) {
         self.render_opts.font_size = size;
         self.last_latex.clear();
+        self.last_rendered = None;
     }
 
     /// Set the device pixel ratio for high-DPI rendering.
     pub fn set_dpr(&mut self, dpr: f32) {
         self.render_opts.device_pixel_ratio = dpr;
         self.last_latex.clear();
+        self.last_rendered = None;
     }
 }
 
@@ -77,7 +166,7 @@ fn render_latex(
     latex: &str,
     layout_opts: &LayoutOptions,
     render_opts: &RenderOptions,
-) -> Result<Vec<u8>> {
+) -> Result<RenderedMath> {
     if latex.is_empty() {
         return render_latex("{}", layout_opts, render_opts);
     }
@@ -93,7 +182,12 @@ fn render_latex(
         .map_err(|e| anyhow::anyhow!("RaTeX render error: {e}"))
         .context("Failed to render to PNG")?;
 
-    Ok(png)
+    Ok(RenderedMath {
+        png_bytes: png,
+        layout_box,
+        display_list,
+        metrics: RenderMetrics::from_options(render_opts),
+    })
 }
 
 /// Load PNG bytes into an egui `ColorImage`.
@@ -122,7 +216,7 @@ mod tests {
         let mut cache = RenderCache::new();
         let result = cache.render("x^2");
         assert!(result.is_ok(), "render failed: {:?}", result.err());
-        let png = result.unwrap();
+        let png = result.unwrap().png_bytes();
         assert!(!png.is_empty());
         // PNG magic bytes.
         assert_eq!(&png[..4], &[0x89, b'P', b'N', b'G']);
@@ -132,8 +226,8 @@ mod tests {
     fn cache_returns_same_result() {
         let mut cache = RenderCache::new();
         let _ = cache.render("a+b").unwrap();
-        let ptr1 = cache.render("a+b").unwrap().as_ptr();
-        let ptr2 = cache.render("a+b").unwrap().as_ptr();
+        let ptr1 = cache.render("a+b").unwrap().png_bytes().as_ptr();
+        let ptr2 = cache.render("a+b").unwrap().png_bytes().as_ptr();
         assert_eq!(ptr1, ptr2);
     }
 
@@ -149,5 +243,24 @@ mod tests {
         let mut cache = RenderCache::new();
         let result = cache.render(LATEX_AUTO_SYMBOL_WITH_TYPED_SPACE);
         assert!(result.is_ok(), "render failed: {:?}", result.err());
+    }
+
+    #[test]
+    fn render_exposes_layout_metadata() {
+        let mut cache = RenderCache::new();
+        let rendered = cache.render("x+1").unwrap();
+
+        assert!(rendered.layout_box().width > 0.0);
+        assert!(rendered.display_list().width > 0.0);
+        assert!(!rendered.display_list().items.is_empty());
+    }
+
+    #[test]
+    fn render_exposes_metrics() {
+        let mut cache = RenderCache::new();
+        let rendered = cache.render("x").unwrap();
+
+        assert!(rendered.metrics().font_size() > 0.0);
+        assert!(rendered.metrics().device_pixel_ratio() > 0.0);
     }
 }

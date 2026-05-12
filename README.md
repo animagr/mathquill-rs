@@ -16,13 +16,13 @@ Keyboard Input
          |
          v
 +------------------+
-| LaTeX Serializer |   src/latex.rs   Walks the tree, emits LaTeX string
+| LaTeX Serializer |   src/latex.rs   Walks the tree, emits LaTeX + cursor mappings
 +--------+---------+
          |
          v
 +------------------+
 |      RaTeX       |   ratex-parser -> ratex-layout -> ratex-render
-|   LaTeX -> PNG   |   Produces PNG bytes via tiny-skia
+| LaTeX -> Layout  |   Produces layout metadata and PNG bytes via tiny-skia
 +--------+---------+
          |
          v
@@ -34,7 +34,7 @@ Keyboard Input
 On every keystroke that mutates the AST:
 
 ```
-mutate tree -> serialize to LaTeX -> RaTeX parse+layout+render -> upload PNG texture -> display
+mutate tree -> serialize to mapped LaTeX -> RaTeX parse+layout+render -> upload PNG texture -> display
 ```
 
 RaTeX's `embed-fonts` feature compiles KaTeX font data into the binary, so no runtime font directory is needed.
@@ -62,14 +62,14 @@ The editor model is UI-agnostic -- it knows nothing about rendering or egui.
 - **ratex-font** -- Font metrics and glyph data
 - **ratex-font-loader** -- Font loading (with `embed-fonts` for compile-time embedding)
 
-The `RenderCache` in `src/ui/renderer.rs` caches the last rendered LaTeX string and PNG bytes, only re-rendering when the AST changes.
+The `RenderCache` in `src/ui/renderer.rs` caches the last rendered LaTeX string together with PNG bytes, RaTeX layout boxes, display-list metadata, and render metrics. The UI uses that metadata for cursor overlay placement and click hit testing.
 
 ## Current implementation status
 
 ### Complete
 
-- **Math AST** (`src/editor/tree.rs`) -- `MathNode` enum with `Seq`, `Symbol`, `Fraction`, `Sqrt`, `Sup`, `Sub`, `SupSub`, `Parens`, `Style`, `Text`
-- **Path-based cursor** (`src/editor/cursor.rs`) -- Navigation into/out of compound structures, up/down movement between fraction numerator/denominator and sup/sub
+- **Math AST** (`src/editor/tree.rs`) -- `MathNode` enum with `Seq`, `Symbol`, `Fraction`, `Sqrt`, `Sup`, `Sub`, `SupSub`, `Parens`, `Style`, `Matrix`, `Text`
+- **Path-based cursor** (`src/editor/cursor.rs`) -- Navigation into/out of compound structures, up/down movement between fraction numerator/denominator and sup/sub, and tabbing through matrix cells
 - **Input handling** (`src/editor/input.rs`) -- Character dispatch (`/` for fraction, `^`/`_` for scripts, `(` `[` `{` `|` for delimiters), backspace and delete-forward with compound node unwrapping
 - **Structured commands** (`src/editor/commands.rs`) -- LiveFraction leftward scan, Sup/Sub creation with Sup-to-SupSub upgrade
 - **Selection** (`src/editor/selection.rs`) -- Shift+arrow selection, Ctrl+A select all, backspace/delete/typing replaces selection, wrap selection in structures (`/`, `^`, `_`, `(`, etc.)
@@ -77,20 +77,22 @@ The `RenderCache` in `src/ui/renderer.rs` caches the last rendered LaTeX string 
 - **Auto-operators** (`src/editor/auto_cmds.rs`) -- Typing `sin`, `cos`, `tan`, `log`, `ln`, `lim`, `exp`, `min`, `max`, `det`, `gcd`, etc. auto-converts to `\sin`, `\cos`, etc.
 - **Auto-symbols** -- Typing `alpha`, `beta`, `pi`, `theta`, `sigma`, `infty`, `nabla`, `leq`, `geq`, `neq`, `approx`, `pm`, `times`, `div`, `to`, `implies`, `iff`, `subset`, `cup`, `cdot`, etc. auto-converts to the corresponding LaTeX command
 - **Auto-structures** -- Typing `sqrt` creates `\sqrt{}` with cursor inside, `abs` creates `|...|`, `norm` creates `||...||`, `sum`/`prod` creates large operators with subscript, `int` creates `\int`
-- **LaTeX serializer** (`src/latex.rs`) -- Full round-trip from AST to LaTeX string
-- **RaTeX rendering** (`src/ui/renderer.rs`) -- Cached render pipeline with PNG output
-- **egui widget** (`src/ui/math_widget.rs`) -- Focus, keyboard input, cursor blink, texture display, approximate cursor overlay
+- **LaTeX serializer** (`src/latex.rs`) -- Full round-trip from AST to LaTeX string, plus mapped node spans and cursor insertion positions
+- **RaTeX rendering** (`src/ui/renderer.rs`) -- Cached render pipeline with PNG output, layout boxes, display-list metadata, and render metrics
+- **Cursor overlay** (`src/ui/cursor_overlay.rs`) -- Layout-backed cursor positioning for root sequences, fractions, scripts, radicals, parens, and matrix cells, with a visual-width fallback
+- **Click-to-place cursor** (`src/ui/math_widget.rs`) -- Clicks focus the editor and place the cursor at the nearest rendered insertion point; hit testing uses render-space x/y distances for supported compound nodes
+- **egui widget** (`src/ui/math_widget.rs`) -- Focus, keyboard input, cursor blink, texture display, and cursor placement
+- **Matrices and environments** -- Core AST, cursor navigation, insertion API, LaTeX serialization, and mapping support for `matrix`, `pmatrix`, `bmatrix`, `Bmatrix`, `vmatrix`, `Vmatrix`, and `smallmatrix`
 - **Tab / Shift+Tab navigation** -- Tab moves forward between fields in compound nodes (numerator→denominator, base→exponent→subscript, index→radicand); Shift+Tab moves backward
 - **Home/End keys** -- Jump to start/end of current sequence
 - **Undo/redo** (`src/editor/undo.rs`) -- Snapshot stack with 200-level depth, Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y
 - **Toolbar** (`src/app.rs`) -- Demo app buttons for fraction, superscript, subscript, sqrt, nth-root, parentheses, brackets, abs
-- **90 unit tests** across all modules
+- **116 unit tests** across all modules
 
 ### Not yet implemented
 
-- **Click-to-place cursor** -- Mapping mouse coordinates to AST node positions (requires DisplayList-to-AST mapping)
-- **Layout-accurate cursor overlay rendering** -- The current overlay uses a path-aware visual-width heuristic; exact positioning still requires DisplayList-to-AST mapping
-- **Matrices and environments** -- `\begin{pmatrix}...\end{pmatrix}`
+- **Full MathQuill-style seek behavior** -- Click hit testing is layout-backed and y-aware for supported structures, but exact recursive before/after behavior around compound bounds and drag selection are still pending
+- **Matrix UI controls** -- Core matrix AST/serialization/navigation exists, but toolbar or keyboard insertion controls are not yet wired into the demo UI
 - **Display modes** -- Inline vs. display math sizing
 - **Accessibility** -- Screen reader support
 
@@ -138,11 +140,11 @@ To run the demo app:
 cargo run
 ```
 
-The demo window has a toolbar, a math editor (click to focus), and a live LaTeX output display. Type math naturally -- `/` for fractions, `^`/`_` for scripts, letter sequences like `sin`, `alpha`, `sqrt` auto-convert. Use Tab to move between fields, arrow keys to navigate, and Escape to unfocus. Collapsible panels at the bottom list all keyboard shortcuts and auto-commands.
+The demo window has a toolbar, a math editor (click to focus and place the cursor), and a live LaTeX output display. Type math naturally -- `/` for fractions, `^`/`_` for scripts, letter sequences like `sin`, `alpha`, `sqrt` auto-convert. Use Tab to move between fields, arrow keys to navigate, and Escape to unfocus. Collapsible panels at the bottom list all keyboard shortcuts and auto-commands.
 
 ### Testing the editor model
 
-Run all 90 tests:
+Run all 116 tests:
 
 ```bash
 cargo test
@@ -158,6 +160,7 @@ cargo test editor::commands    # Fraction/script insertion logic
 cargo test editor::selection   # Selection range and node extraction
 cargo test latex               # LaTeX serialization
 cargo test ui::renderer        # RaTeX render pipeline
+cargo test ui::cursor_overlay  # Cursor overlay and click hit testing
 ```
 
 Run a single test by name:
@@ -176,7 +179,7 @@ src/
   latex.rs            MathNode -> LaTeX serializer
   editor/
     mod.rs
-    tree.rs           MathNode enum, SymbolData, BracketKind, StyleKind
+    tree.rs           MathNode enum, SymbolData, BracketKind, StyleKind, MatrixKind
     cursor.rs         Path-based cursor with CursorStep enum
     input.rs          Editor struct, character/key dispatch
     commands.rs       Fraction/script insertion logic
@@ -186,7 +189,8 @@ src/
   ui/
     mod.rs
     math_widget.rs    egui widget (focus, input, render, display)
-    renderer.rs       RaTeX render cache, PNG-to-texture conversion
+    cursor_overlay.rs Cursor positioning and click hit testing
+    renderer.rs       RaTeX render cache, layout metadata, PNG-to-texture conversion
 ```
 
 ## License

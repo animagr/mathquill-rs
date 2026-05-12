@@ -99,6 +99,9 @@ fn descend_mut_step(node: &mut MathNode, step: CursorStep) -> Option<&mut MathNo
         (MathNode::Parens { body, .. } | MathNode::Style { body, .. }, CursorStep::Inner) => {
             Some(body)
         }
+        (MathNode::Matrix { cells, .. }, CursorStep::MatrixCell { row, col }) => cells
+            .get_mut(row)
+            .and_then(|matrix_row| matrix_row.get_mut(col)),
         _ => None,
     }
 }

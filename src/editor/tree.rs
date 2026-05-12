@@ -23,6 +23,34 @@ pub enum StyleKind {
     Overline,
 }
 
+/// Supported matrix-like LaTeX environments.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MatrixKind {
+    Matrix,
+    Parenthesized,
+    Bracketed,
+    Braced,
+    Determinant,
+    DoubleDeterminant,
+    Small,
+}
+
+impl MatrixKind {
+    /// LaTeX environment name used by this matrix kind.
+    #[must_use]
+    pub fn environment_name(self) -> &'static str {
+        match self {
+            Self::Matrix => "matrix",
+            Self::Parenthesized => "pmatrix",
+            Self::Bracketed => "bmatrix",
+            Self::Braced => "Bmatrix",
+            Self::Determinant => "vmatrix",
+            Self::DoubleDeterminant => "Vmatrix",
+            Self::Small => "smallmatrix",
+        }
+    }
+}
+
 /// Metadata for a single symbol (letter, digit, operator, Greek, etc.).
 #[derive(Debug, Clone, PartialEq)]
 pub struct SymbolData {
@@ -97,6 +125,11 @@ pub enum MathNode {
         kind: StyleKind,
         body: Box<MathNode>,
     },
+    /// Matrix-like environment with row-major cells.
+    Matrix {
+        kind: MatrixKind,
+        cells: Vec<Vec<MathNode>>,
+    },
     /// `\text{...}` — plain text block.
     Text(String),
 }
@@ -148,7 +181,18 @@ impl MathNode {
             | Self::Sup { .. }
             | Self::Sub { .. } => 2,
             Self::SupSub { .. } => 3,
+            Self::Matrix { cells, .. } => cells.iter().map(Vec::len).sum(),
         }
+    }
+
+    /// Create a rectangular matrix filled with empty sequence cells.
+    #[must_use]
+    pub fn matrix(kind: MatrixKind, rows: usize, cols: usize) -> Self {
+        let cells = (0..rows)
+            .map(|_| (0..cols).map(|_| Self::empty_seq()).collect())
+            .collect();
+
+        Self::Matrix { kind, cells }
     }
 }
 
@@ -212,6 +256,17 @@ mod tests {
             den: Box::new(MathNode::empty_seq()),
         };
         assert_eq!(frac.child_slot_count(), 2);
+    }
+
+    #[test]
+    fn matrix_slot_count_counts_cells() {
+        let matrix = MathNode::matrix(MatrixKind::Parenthesized, 2, 3);
+        assert_eq!(matrix.child_slot_count(), 6);
+    }
+
+    #[test]
+    fn matrix_kind_has_environment_name() {
+        assert_eq!(MatrixKind::Bracketed.environment_name(), "bmatrix");
     }
 
     #[test]

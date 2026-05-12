@@ -4,7 +4,7 @@ use super::auto_cmds;
 use super::commands;
 use super::cursor::{Cursor, CursorStep};
 use super::selection::Selection;
-use super::tree::{MathNode, SymbolData, SymbolKind};
+use super::tree::{MathNode, MatrixKind, SymbolData, SymbolKind};
 use super::undo::UndoStack;
 
 const PARSEABLE_SPACE_CTRL_SEQ: &str = "\\,";
@@ -618,6 +618,24 @@ impl Editor {
         }
     }
 
+    /// Insert a matrix-like environment at the cursor position.
+    pub fn insert_matrix(&mut self, kind: MatrixKind, rows: usize, cols: usize) {
+        self.snapshot();
+        if let Some(resolved) = self.cursor.resolve_mut(&mut self.root) {
+            let pos = resolved.pos;
+            let matrix = MathNode::matrix(kind, rows, cols);
+            resolved.seq.insert(pos, matrix);
+
+            let base_path = &self.cursor.path()[..self.cursor.path().len() - 1];
+            let mut new_path: Vec<CursorStep> = base_path.to_vec();
+            new_path.push(CursorStep::SeqPos(pos));
+            new_path.push(CursorStep::MatrixCell { row: 0, col: 0 });
+            new_path.push(CursorStep::SeqPos(0));
+            self.cursor = Cursor::from_path(new_path);
+            self.dirty = true;
+        }
+    }
+
     /// Insert a `\text{}` block at the cursor position.
     pub fn insert_text_block(&mut self) {
         self.snapshot();
@@ -655,6 +673,7 @@ fn cursor_entry_slot(node: &MathNode) -> Option<CursorStep> {
         MathNode::Sqrt { .. } => Some(CursorStep::Radicand),
         MathNode::Parens { .. } => Some(CursorStep::Inner),
         MathNode::Sub { .. } => Some(CursorStep::Subscript),
+        MathNode::Matrix { .. } => Some(CursorStep::MatrixCell { row: 0, col: 0 }),
         _ => None,
     }
 }
@@ -669,6 +688,7 @@ impl Default for Editor {
 mod tests {
     use super::Editor;
     use crate::editor::cursor::CursorStep;
+    use crate::editor::tree::MatrixKind;
 
     #[test]
     fn type_letters() {
@@ -951,6 +971,25 @@ mod tests {
         editor.type_char('x');
         let latex = editor.to_latex();
         assert_eq!(latex, "\\sqrt[3]{x}");
+    }
+
+    #[test]
+    fn matrix_insert_places_cursor_in_first_cell() {
+        let mut editor = Editor::new();
+        editor.insert_matrix(MatrixKind::Parenthesized, 2, 2);
+
+        assert_eq!(
+            editor.cursor.path(),
+            &[
+                CursorStep::SeqPos(0),
+                CursorStep::MatrixCell { row: 0, col: 0 },
+                CursorStep::SeqPos(0),
+            ],
+        );
+        assert_eq!(
+            editor.to_latex(),
+            "\\begin{pmatrix}  &  \\\\  & \\end{pmatrix}"
+        );
     }
 
     #[test]
