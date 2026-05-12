@@ -7,6 +7,9 @@ use ratex_parser::parser::parse;
 use ratex_render::{render_to_png, RenderOptions};
 use ratex_types::color::Color;
 
+#[cfg(test)]
+const LATEX_AUTO_SYMBOL_WITH_TYPED_SPACE: &str = "\\alpha \\,";
+
 /// Cached render state: avoids re-rendering when the LaTeX hasn't changed.
 pub struct RenderCache {
     last_latex: String,
@@ -112,7 +115,7 @@ pub fn png_to_color_image(png_bytes: &[u8]) -> Result<egui::ColorImage> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{RenderCache, LATEX_AUTO_SYMBOL_WITH_TYPED_SPACE};
 
     #[test]
     fn render_simple_expression() {
@@ -139,5 +142,12 @@ mod tests {
         let mut cache = RenderCache::new();
         let result = cache.render("");
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn render_auto_symbol_followed_by_typed_space() {
+        let mut cache = RenderCache::new();
+        let result = cache.render(LATEX_AUTO_SYMBOL_WITH_TYPED_SPACE);
+        assert!(result.is_ok(), "render failed: {:?}", result.err());
     }
 }

@@ -23,31 +23,67 @@ impl eframe::App for MathApp {
             ui.separator();
 
             ui.horizontal(|ui| {
-                if ui.button("a/b").on_hover_text("Fraction (or type /)").clicked() {
+                if ui
+                    .button("a/b")
+                    .on_hover_text("Fraction (or type /)")
+                    .clicked()
+                {
                     self.widget.editor_mut().type_char('/');
                 }
-                if ui.button("x\u{207F}").on_hover_text("Superscript (or type ^)").clicked() {
+                if ui
+                    .button("x\u{207F}")
+                    .on_hover_text("Superscript (or type ^)")
+                    .clicked()
+                {
                     self.widget.editor_mut().type_char('^');
                 }
-                if ui.button("x\u{2099}").on_hover_text("Subscript (or type _)").clicked() {
+                if ui
+                    .button("x\u{2099}")
+                    .on_hover_text("Subscript (or type _)")
+                    .clicked()
+                {
                     self.widget.editor_mut().type_char('_');
                 }
-                if ui.button("\u{221A}").on_hover_text("Square root (or type sqrt)").clicked() {
+                if ui
+                    .button("\u{221A}")
+                    .on_hover_text("Square root (or type sqrt)")
+                    .clicked()
+                {
                     self.widget.editor_mut().insert_sqrt();
                 }
-                if ui.button("\u{207F}\u{221A}").on_hover_text("Nth root").clicked() {
+                if ui
+                    .button("\u{207F}\u{221A}")
+                    .on_hover_text("Nth root")
+                    .clicked()
+                {
                     self.widget.editor_mut().insert_nth_root();
                 }
-                if ui.button("( )").on_hover_text("Parentheses (or type ()").clicked() {
+                if ui
+                    .button("( )")
+                    .on_hover_text("Parentheses (or type ()")
+                    .clicked()
+                {
                     self.widget.editor_mut().type_char('(');
                 }
-                if ui.button("[ ]").on_hover_text("Square brackets (or type [)").clicked() {
+                if ui
+                    .button("[ ]")
+                    .on_hover_text("Square brackets (or type [)")
+                    .clicked()
+                {
                     self.widget.editor_mut().type_char('[');
                 }
-                if ui.button("{ }").on_hover_text("Curly braces (or type {)").clicked() {
+                if ui
+                    .button("{ }")
+                    .on_hover_text("Curly braces (or type {)")
+                    .clicked()
+                {
                     self.widget.editor_mut().type_char('{');
                 }
-                if ui.button("| |").on_hover_text("Absolute value (or type | or abs)").clicked() {
+                if ui
+                    .button("| |")
+                    .on_hover_text("Absolute value (or type | or abs)")
+                    .clicked()
+                {
                     self.widget.editor_mut().type_char('|');
                 }
             });

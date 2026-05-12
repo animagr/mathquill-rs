@@ -79,16 +79,26 @@ fn descend_mut_step(node: &mut MathNode, step: CursorStep) -> Option<&mut MathNo
         (MathNode::Fraction { num, .. }, CursorStep::Numerator) => Some(num),
         (MathNode::Fraction { den, .. }, CursorStep::Denominator) => Some(den),
         (MathNode::Sqrt { radicand, .. }, CursorStep::Radicand) => Some(radicand),
-        (MathNode::Sqrt { index: Some(idx), .. }, CursorStep::Index) => Some(idx),
-        (MathNode::Sup { base, .. }
-        | MathNode::Sub { base, .. }
-        | MathNode::SupSub { base, .. }, CursorStep::Base) => Some(base),
-        (MathNode::Sup { exp, .. }
-        | MathNode::SupSub { sup: exp, .. }, CursorStep::Exponent) => Some(exp),
-        (MathNode::Sub { script, .. }
-        | MathNode::SupSub { sub: script, .. }, CursorStep::Subscript) => Some(script),
-        (MathNode::Parens { body, .. }
-        | MathNode::Style { body, .. }, CursorStep::Inner) => Some(body),
+        (
+            MathNode::Sqrt {
+                index: Some(idx), ..
+            },
+            CursorStep::Index,
+        ) => Some(idx),
+        (
+            MathNode::Sup { base, .. } | MathNode::Sub { base, .. } | MathNode::SupSub { base, .. },
+            CursorStep::Base,
+        ) => Some(base),
+        (MathNode::Sup { exp, .. } | MathNode::SupSub { sup: exp, .. }, CursorStep::Exponent) => {
+            Some(exp)
+        }
+        (
+            MathNode::Sub { script, .. } | MathNode::SupSub { sub: script, .. },
+            CursorStep::Subscript,
+        ) => Some(script),
+        (MathNode::Parens { body, .. } | MathNode::Style { body, .. }, CursorStep::Inner) => {
+            Some(body)
+        }
         _ => None,
     }
 }

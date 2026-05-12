@@ -79,17 +79,17 @@ The `RenderCache` in `src/ui/renderer.rs` caches the last rendered LaTeX string 
 - **Auto-structures** -- Typing `sqrt` creates `\sqrt{}` with cursor inside, `abs` creates `|...|`, `norm` creates `||...||`, `sum`/`prod` creates large operators with subscript, `int` creates `\int`
 - **LaTeX serializer** (`src/latex.rs`) -- Full round-trip from AST to LaTeX string
 - **RaTeX rendering** (`src/ui/renderer.rs`) -- Cached render pipeline with PNG output
-- **egui widget** (`src/ui/math_widget.rs`) -- Focus, keyboard input, cursor blink, texture display
+- **egui widget** (`src/ui/math_widget.rs`) -- Focus, keyboard input, cursor blink, texture display, approximate cursor overlay
 - **Tab / Shift+Tab navigation** -- Tab moves forward between fields in compound nodes (numerator→denominator, base→exponent→subscript, index→radicand); Shift+Tab moves backward
 - **Home/End keys** -- Jump to start/end of current sequence
 - **Undo/redo** (`src/editor/undo.rs`) -- Snapshot stack with 200-level depth, Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y
 - **Toolbar** (`src/app.rs`) -- Demo app buttons for fraction, superscript, subscript, sqrt, nth-root, parentheses, brackets, abs
-- **86 unit tests** across all modules
+- **90 unit tests** across all modules
 
 ### Not yet implemented
 
 - **Click-to-place cursor** -- Mapping mouse coordinates to AST node positions (requires DisplayList-to-AST mapping)
-- **Cursor overlay rendering** -- Drawing the cursor at the correct position within the rendered math (current placeholder uses a fixed-width estimate)
+- **Layout-accurate cursor overlay rendering** -- The current overlay uses a path-aware visual-width heuristic; exact positioning still requires DisplayList-to-AST mapping
 - **Matrices and environments** -- `\begin{pmatrix}...\end{pmatrix}`
 - **Display modes** -- Inline vs. display math sizing
 - **Accessibility** -- Screen reader support
@@ -142,7 +142,7 @@ The demo window has a toolbar, a math editor (click to focus), and a live LaTeX 
 
 ### Testing the editor model
 
-Run all 86 tests:
+Run all 90 tests:
 
 ```bash
 cargo test

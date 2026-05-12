@@ -7,6 +7,8 @@ use super::selection::Selection;
 use super::tree::{MathNode, SymbolData, SymbolKind};
 use super::undo::UndoStack;
 
+const PARSEABLE_SPACE_CTRL_SEQ: &str = "\\,";
+
 /// The top-level editor: owns the math tree, cursor, and undo history.
 pub struct Editor {
     pub root: MathNode,
@@ -42,8 +44,7 @@ impl Editor {
 
     /// Record a snapshot for undo before making a change.
     fn snapshot(&mut self) {
-        self.undo_stack
-            .push(self.root.clone(), self.cursor.clone());
+        self.undo_stack.push(self.root.clone(), self.cursor.clone());
     }
 
     /// Undo the last edit.
@@ -102,10 +103,7 @@ impl Editor {
         if self.selection.is_none() {
             self.selection = Some(Selection::from_cursor(&self.cursor));
         }
-        let seq_len = self
-            .cursor
-            .resolve(&self.root)
-            .map_or(0, |r| r.seq.len());
+        let seq_len = self.cursor.resolve(&self.root).map_or(0, |r| r.seq.len());
         let pos = self.cursor.seq_pos();
         if pos < seq_len {
             if let Some(last) = self.cursor.path_mut().last_mut() {
@@ -116,10 +114,7 @@ impl Editor {
 
     /// Select all nodes in the current `Seq`.
     pub fn select_all(&mut self) {
-        let seq_len = self
-            .cursor
-            .resolve(&self.root)
-            .map_or(0, |r| r.seq.len());
+        let seq_len = self.cursor.resolve(&self.root).map_or(0, |r| r.seq.len());
         let path = self.cursor.path();
         let seq_path = path[..path.len() - 1].to_vec();
         self.selection = Some(Selection {
@@ -164,7 +159,9 @@ impl Editor {
             '|' => self.insert_parens(super::tree::BracketKind::Pipe),
             ')' | ']' | '}' => self.close_bracket(),
             c if c.is_ascii_digit() => self.insert_symbol(SymbolData::digit(c)),
-            c if c.is_ascii_alphabetic() => self.insert_symbol(SymbolData::variable(&c.to_string())),
+            c if c.is_ascii_alphabetic() => {
+                self.insert_symbol(SymbolData::variable(&c.to_string()));
+            }
             '+' => self.insert_symbol(SymbolData::binary_op("+", "+")),
             '-' => self.insert_symbol(SymbolData::binary_op("\u{2212}", "-")),
             '*' => self.insert_symbol(SymbolData::binary_op("\u{22C5}", "\\cdot ")),
@@ -208,7 +205,7 @@ impl Editor {
             }),
             ' ' => self.insert_symbol(SymbolData {
                 ch: " ".to_string(),
-                ctrl_seq: "\\ ".to_string(),
+                ctrl_seq: PARSEABLE_SPACE_CTRL_SEQ.to_string(),
                 kind: SymbolKind::Space,
             }),
             _ => {
@@ -670,7 +667,8 @@ impl Default for Editor {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::Editor;
+    use crate::editor::cursor::CursorStep;
 
     #[test]
     fn type_letters() {
@@ -759,6 +757,15 @@ mod tests {
             editor.type_char(ch);
         }
         assert_eq!(editor.to_latex(), "\\alpha ");
+    }
+
+    #[test]
+    fn space_after_auto_symbol_uses_parseable_spacing_command() {
+        let mut editor = Editor::new();
+        for ch in "alpha ".chars() {
+            editor.type_char(ch);
+        }
+        assert_eq!(editor.to_latex(), "\\alpha \\,");
     }
 
     #[test]

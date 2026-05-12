@@ -140,9 +140,7 @@ impl Cursor {
     /// Move in the given direction.
     pub fn move_dir(&mut self, root: &MathNode, dir: Direction) {
         let pos = self.seq_pos();
-        let seq_len = self
-            .resolve(root)
-            .map_or(0, |r| r.seq.len());
+        let seq_len = self.resolve(root).map_or(0, |r| r.seq.len());
 
         match dir {
             Direction::Left => {
@@ -266,7 +264,9 @@ impl Cursor {
                 if let Some(node) = self.resolve_parent_node(root) {
                     match node {
                         MathNode::Sub { .. } => Some(CursorStep::Subscript),
-                        MathNode::Sup { .. } | MathNode::SupSub { .. } => Some(CursorStep::Exponent),
+                        MathNode::Sup { .. } | MathNode::SupSub { .. } => {
+                            Some(CursorStep::Exponent)
+                        }
                         _ => None,
                     }
                 } else {
@@ -425,16 +425,26 @@ fn descend(node: &MathNode, step: CursorStep) -> Option<&MathNode> {
         (MathNode::Fraction { num, .. }, CursorStep::Numerator) => Some(num),
         (MathNode::Fraction { den, .. }, CursorStep::Denominator) => Some(den),
         (MathNode::Sqrt { radicand, .. }, CursorStep::Radicand) => Some(radicand),
-        (MathNode::Sqrt { index: Some(idx), .. }, CursorStep::Index) => Some(idx),
-        (MathNode::Sup { base, .. }
-        | MathNode::Sub { base, .. }
-        | MathNode::SupSub { base, .. }, CursorStep::Base) => Some(base),
-        (MathNode::Sup { exp, .. }
-        | MathNode::SupSub { sup: exp, .. }, CursorStep::Exponent) => Some(exp),
-        (MathNode::Sub { script, .. }
-        | MathNode::SupSub { sub: script, .. }, CursorStep::Subscript) => Some(script),
-        (MathNode::Parens { body, .. }
-        | MathNode::Style { body, .. }, CursorStep::Inner) => Some(body),
+        (
+            MathNode::Sqrt {
+                index: Some(idx), ..
+            },
+            CursorStep::Index,
+        ) => Some(idx),
+        (
+            MathNode::Sup { base, .. } | MathNode::Sub { base, .. } | MathNode::SupSub { base, .. },
+            CursorStep::Base,
+        ) => Some(base),
+        (MathNode::Sup { exp, .. } | MathNode::SupSub { sup: exp, .. }, CursorStep::Exponent) => {
+            Some(exp)
+        }
+        (
+            MathNode::Sub { script, .. } | MathNode::SupSub { sub: script, .. },
+            CursorStep::Subscript,
+        ) => Some(script),
+        (MathNode::Parens { body, .. } | MathNode::Style { body, .. }, CursorStep::Inner) => {
+            Some(body)
+        }
         _ => None,
     }
 }
@@ -446,16 +456,26 @@ fn descend_mut(node: &mut MathNode, step: CursorStep) -> Option<&mut MathNode> {
         (MathNode::Fraction { num, .. }, CursorStep::Numerator) => Some(num),
         (MathNode::Fraction { den, .. }, CursorStep::Denominator) => Some(den),
         (MathNode::Sqrt { radicand, .. }, CursorStep::Radicand) => Some(radicand),
-        (MathNode::Sqrt { index: Some(idx), .. }, CursorStep::Index) => Some(idx),
-        (MathNode::Sup { base, .. }
-        | MathNode::Sub { base, .. }
-        | MathNode::SupSub { base, .. }, CursorStep::Base) => Some(base),
-        (MathNode::Sup { exp, .. }
-        | MathNode::SupSub { sup: exp, .. }, CursorStep::Exponent) => Some(exp),
-        (MathNode::Sub { script, .. }
-        | MathNode::SupSub { sub: script, .. }, CursorStep::Subscript) => Some(script),
-        (MathNode::Parens { body, .. }
-        | MathNode::Style { body, .. }, CursorStep::Inner) => Some(body),
+        (
+            MathNode::Sqrt {
+                index: Some(idx), ..
+            },
+            CursorStep::Index,
+        ) => Some(idx),
+        (
+            MathNode::Sup { base, .. } | MathNode::Sub { base, .. } | MathNode::SupSub { base, .. },
+            CursorStep::Base,
+        ) => Some(base),
+        (MathNode::Sup { exp, .. } | MathNode::SupSub { sup: exp, .. }, CursorStep::Exponent) => {
+            Some(exp)
+        }
+        (
+            MathNode::Sub { script, .. } | MathNode::SupSub { sub: script, .. },
+            CursorStep::Subscript,
+        ) => Some(script),
+        (MathNode::Parens { body, .. } | MathNode::Style { body, .. }, CursorStep::Inner) => {
+            Some(body)
+        }
         _ => None,
     }
 }
