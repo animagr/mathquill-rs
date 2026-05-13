@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-05-13
+
+### Fixed
+
+- Cursor height now matches the neighboring nodes at the cursor position instead of spanning the full containing sequence. Previously, a cursor next to `x` in `\frac{a}{b} + x` would be as tall as the entire fraction; now it matches the height of `x`.
+- Selection highlight height follows the same neighbor-based sizing, so drag-to-select and Shift+arrow highlights match the local text height.
+- Added minimum ascent/descent for display-mode cursors so they remain visible in empty sequences and next to flat operators.
+
 ## [0.1.4] - 2026-05-12
 
 ### Added
@@ -100,6 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - eframe demo application showing the widget with live LaTeX output
 - 36 unit tests across all modules
 
+[0.1.5]: https://github.com/animagr/mathquill-rs/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/animagr/mathquill-rs/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/animagr/mathquill-rs/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/animagr/mathquill-rs/compare/v0.1.1...v0.1.2

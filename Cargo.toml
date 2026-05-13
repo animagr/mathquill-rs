@@ -1,6 +1,6 @@
 [package]
 name = "mathquill-rs"
-version = "0.1.1"
+version = "0.1.5"
 edition = "2021"
 rust-version = "1.75"
 description = "Native WYSIWYG math editor — MathQuill ported to Rust with RaTeX rendering"

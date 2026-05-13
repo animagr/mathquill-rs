@@ -1812,7 +1812,7 @@ dependencies = [
 
 [[package]]
 name = "mathquill-rs"
-version = "0.1.1"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "eframe",
@@ -2705,7 +2705,7 @@ dependencies = [
 
 [[package]]
 name = "ratex-font"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "phf",
  "ratex-types",
@@ -2713,7 +2713,7 @@ dependencies = [
 
 [[package]]
 name = "ratex-font-loader"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "ab_glyph",
  "ratex-font",
@@ -2724,14 +2724,14 @@ dependencies = [
 
 [[package]]
 name = "ratex-katex-fonts"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "rust-embed",
 ]
 
 [[package]]
 name = "ratex-layout"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "ratex-font",
  "ratex-parser",
@@ -2741,7 +2741,7 @@ dependencies = [
 
 [[package]]
 name = "ratex-lexer"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "ratex-types",
  "serde",
@@ -2750,7 +2750,7 @@ dependencies = [
 
 [[package]]
 name = "ratex-parser"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "fancy-regex",
  "ratex-font",
@@ -2766,7 +2766,7 @@ dependencies = [
 
 [[package]]
 name = "ratex-render"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "ab_glyph",
  "png 0.17.16",
@@ -2784,21 +2784,21 @@ dependencies = [
 
 [[package]]
 name = "ratex-svg"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "ratex-types",
 ]
 
 [[package]]
 name = "ratex-types"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "ratex-unicode-font"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "fontdb",
  "ttf-parser",

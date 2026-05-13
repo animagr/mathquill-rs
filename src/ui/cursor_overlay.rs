@@ -31,6 +31,8 @@ const CURSOR_ANCHOR_MIN_ASCENT: f64 = 0.35;
 const CURSOR_ANCHOR_MAX_ASCENT: f64 = 0.9;
 const CURSOR_ANCHOR_MIN_DESCENT: f64 = 0.15;
 const CURSOR_ANCHOR_MAX_DESCENT: f64 = 0.35;
+const CURSOR_DISPLAY_MIN_ASCENT: f64 = 0.45;
+const CURSOR_DISPLAY_MIN_DESCENT: f64 = 0.12;
 
 /// Cursor position and vertical extent in egui logical points.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -815,10 +817,10 @@ fn anchor_for_path(
 
     let children = node.as_seq()?;
     let local_x = sequence_cursor_offset(children, layout_box, pos)?;
-    let anchor = cursor_anchor(local_x, layout_box, context, mode);
 
     if remaining.is_empty() {
-        return Some(anchor);
+        let (height, depth) = neighbor_height_depth(children, layout_box, pos);
+        return Some(cursor_anchor_with_dims(local_x, height, depth, context, mode));
     }
 
     let child = children.get(pos)?;
@@ -838,6 +840,32 @@ fn anchor_for_path(
         child_context,
         mode,
     )
+}
+
+fn neighbor_height_depth(
+    children: &[MathNode],
+    layout_box: &LayoutBox,
+    pos: usize,
+) -> (f64, f64) {
+    if children.is_empty() {
+        return (layout_box.height, layout_box.depth);
+    }
+
+    let Some(logical) = logical_child_boxes(children, layout_box) else {
+        return (layout_box.height, layout_box.depth);
+    };
+
+    let left = if pos > 0 { logical.get(pos - 1) } else { None };
+    let right = logical.get(pos);
+
+    match (left, right) {
+        (Some(l), Some(r)) => (
+            l.layout_box.height.max(r.layout_box.height),
+            l.layout_box.depth.max(r.layout_box.depth),
+        ),
+        (Some(n), None) | (None, Some(n)) => (n.layout_box.height, n.layout_box.depth),
+        (None, None) => (layout_box.height, layout_box.depth),
+    }
 }
 
 fn offset_for_path(node: &MathNode, layout_box: &LayoutBox, path: &[CursorStep]) -> Option<f64> {
@@ -1463,22 +1491,22 @@ enum AnchorMode {
     Display,
 }
 
-fn cursor_anchor(
+fn cursor_anchor_with_dims(
     local_x: f64,
-    layout_box: &LayoutBox,
+    height: f64,
+    depth: f64,
     context: LayoutContext,
     mode: AnchorMode,
 ) -> CursorAnchor {
     let (ascent, descent) = match mode {
         AnchorMode::HitTest => (
-            layout_box
-                .height
-                .clamp(CURSOR_ANCHOR_MIN_ASCENT, CURSOR_ANCHOR_MAX_ASCENT),
-            layout_box
-                .depth
-                .clamp(CURSOR_ANCHOR_MIN_DESCENT, CURSOR_ANCHOR_MAX_DESCENT),
+            height.clamp(CURSOR_ANCHOR_MIN_ASCENT, CURSOR_ANCHOR_MAX_ASCENT),
+            depth.clamp(CURSOR_ANCHOR_MIN_DESCENT, CURSOR_ANCHOR_MAX_DESCENT),
         ),
-        AnchorMode::Display => (layout_box.height, layout_box.depth),
+        AnchorMode::Display => (
+            height.max(CURSOR_DISPLAY_MIN_ASCENT),
+            depth.max(CURSOR_DISPLAY_MIN_DESCENT),
+        ),
     };
 
     CursorAnchor {
