@@ -2,8 +2,10 @@
 
 use egui::{Key, TextureHandle, TextureOptions};
 
-use super::cursor_overlay::{cursor_for_point, cursor_position_for_rect};
+use super::cursor_overlay::{cursor_for_point, cursor_position_for_path, cursor_position_for_rect};
 use super::renderer::{png_to_color_image, RenderCache};
+use crate::editor::cursor::Cursor;
+use crate::editor::selection::Selection;
 use crate::editor::Editor;
 
 const CURSOR_BLINK_INTERVAL_SECS: f64 = 0.53;
@@ -16,6 +18,7 @@ pub struct MathWidget {
     focused: bool,
     cursor_visible: bool,
     last_blink: f64,
+    drag_anticursor: Option<Cursor>,
 }
 
 impl MathWidget {
@@ -29,6 +32,7 @@ impl MathWidget {
             focused: false,
             cursor_visible: true,
             last_blink: 0.0,
+            drag_anticursor: None,
         }
     }
 
@@ -53,11 +57,36 @@ impl MathWidget {
                 egui::vec2(s.x * 0.5, s.y * 0.5)
             });
 
-        let (rect, response) = ui.allocate_exact_size(desired_size, egui::Sense::click());
+        let (rect, response) =
+            ui.allocate_exact_size(desired_size, egui::Sense::click_and_drag());
 
         self.ensure_rendered(ui);
 
-        if response.clicked() {
+        if response.drag_started() {
+            self.focused = true;
+            if let Some(point) = response.interact_pointer_pos() {
+                if let Some(cursor) =
+                    cursor_for_point(&self.editor, self.render_cache.last_rendered(), rect, point)
+                {
+                    self.editor.cursor = cursor.clone();
+                    self.editor.selection = None;
+                    self.drag_anticursor = Some(cursor);
+                }
+            }
+            self.cursor_visible = true;
+            self.last_blink = ui.input(|i| i.time);
+        } else if response.dragged() {
+            if let Some(point) = response.interact_pointer_pos() {
+                if let Some(cursor) =
+                    cursor_for_point(&self.editor, self.render_cache.last_rendered(), rect, point)
+                {
+                    self.editor.cursor = cursor;
+                    self.update_drag_selection();
+                }
+            }
+        } else if response.drag_stopped() {
+            self.drag_anticursor = None;
+        } else if response.clicked() {
             self.focused = true;
             if let Some(point) = response.interact_pointer_pos() {
                 if let Some(cursor) =
@@ -108,18 +137,19 @@ impl MathWidget {
                     egui::StrokeKind::Outside,
                 );
 
-                // Draw cursor indicator.
+                let cursor_pos = cursor_position_for_rect(
+                    &self.editor,
+                    self.render_cache.last_rendered(),
+                    rect,
+                );
+
+                self.draw_selection_highlight(ui, rect, cursor_pos);
+
                 if self.cursor_visible {
-                    let cursor_x = cursor_position_for_rect(
-                        &self.editor,
-                        self.render_cache.last_rendered(),
-                        rect,
-                    )
-                    .x();
                     ui.painter().line_segment(
                         [
-                            egui::pos2(cursor_x, rect.top() + 4.0),
-                            egui::pos2(cursor_x, rect.bottom() - 4.0),
+                            egui::pos2(cursor_pos.x(), cursor_pos.top()),
+                            egui::pos2(cursor_pos.x(), cursor_pos.bottom()),
                         ],
                         egui::Stroke::new(1.5, egui::Color32::from_rgb(66, 133, 244)),
                     );
@@ -128,6 +158,61 @@ impl MathWidget {
         }
 
         response
+    }
+
+    /// Draw a translucent highlight rectangle over the selected range.
+    fn draw_selection_highlight(
+        &self,
+        ui: &egui::Ui,
+        rect: egui::Rect,
+        cursor_pos: super::cursor_overlay::CursorPosition,
+    ) {
+        let Some(sel) = &self.editor.selection else {
+            return;
+        };
+        if !sel.is_same_seq(&self.editor.cursor) || !sel.is_nonempty(self.editor.cursor.seq_pos())
+        {
+            return;
+        }
+
+        let anchor_cursor = Cursor::from_path({
+            let mut path = sel.seq_path.clone();
+            path.push(crate::editor::cursor::CursorStep::SeqPos(sel.anchor));
+            path
+        });
+        let anchor_pos = cursor_position_for_path(
+            &self.editor.root,
+            &anchor_cursor,
+            self.render_cache.last_rendered(),
+            rect,
+        );
+
+        let left = cursor_pos.x().min(anchor_pos.x());
+        let right = cursor_pos.x().max(anchor_pos.x());
+        if (right - left) > 0.5 {
+            let top = cursor_pos.top().min(anchor_pos.top());
+            let bottom = cursor_pos.bottom().max(anchor_pos.bottom());
+            let sel_rect = egui::Rect::from_min_max(
+                egui::pos2(left, top),
+                egui::pos2(right, bottom),
+            );
+            ui.painter().rect_filled(
+                sel_rect,
+                0.0,
+                egui::Color32::from_rgba_unmultiplied(66, 133, 244, 60),
+            );
+        }
+    }
+
+    /// Update selection state during a drag gesture (same-Seq only).
+    fn update_drag_selection(&mut self) {
+        let Some(anticursor) = &self.drag_anticursor else {
+            return;
+        };
+        let sel = Selection::from_cursor(anticursor);
+        if sel.is_same_seq(&self.editor.cursor) {
+            self.editor.selection = Some(sel);
+        }
     }
 
     /// Handle keyboard input when focused.

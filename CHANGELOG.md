@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-05-12
+
+### Added
+
+- Added MathQuill-style recursive seek for click-to-place cursor: `seek_recursive` walks the RaTeX layout box tree top-down through fractions, scripts, radicals, left-right delimiters, and matrices to place the cursor in the correct child slot.
+- Added drag-to-select: `MathWidget` now uses `Sense::click_and_drag()` with a drag anticursor to create same-Seq selections during pointer drag.
+- Added matrix toolbar buttons to the demo app: 2×2 parenthesized matrix, 3×3 parenthesized matrix, and 2×2 determinant.
+- Added 6 new recursive seek tests (122 total): far-left/right placement, fraction numerator/denominator entry, superscript entry, and symbol midpoint placement.
+
+### Changed
+
+- Click-to-place cursor now tries recursive seek first, falling back to brute-force anchor distance and then visual hit testing.
+- Cursor line height now matches the containing layout box at the cursor's depth (MathQuill-style), instead of spanning the full widget height. Cursor inside a fraction numerator or superscript is proportionally shorter than at the root level.
+- Selection highlight drawn as a translucent blue rectangle between anchor and cursor positions, visible during both drag-to-select and Shift+arrow selection.
+- Cursor anchor system refactored with `AnchorMode`: `HitTest` uses clamped bounds for click targeting, `Display` uses actual layout box height/depth for cursor rendering.
+- Demo app toolbar refactored into a separate method with a second row for matrix insertion buttons.
+
 ## [0.1.3] - 2026-05-12
 
 ### Added
@@ -83,6 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - eframe demo application showing the widget with live LaTeX output
 - 36 unit tests across all modules
 
+[0.1.4]: https://github.com/animagr/mathquill-rs/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/animagr/mathquill-rs/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/animagr/mathquill-rs/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/animagr/mathquill-rs/compare/v0.1.0...v0.1.1

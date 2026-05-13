@@ -80,19 +80,19 @@ The `RenderCache` in `src/ui/renderer.rs` caches the last rendered LaTeX string 
 - **LaTeX serializer** (`src/latex.rs`) -- Full round-trip from AST to LaTeX string, plus mapped node spans and cursor insertion positions
 - **RaTeX rendering** (`src/ui/renderer.rs`) -- Cached render pipeline with PNG output, layout boxes, display-list metadata, and render metrics
 - **Cursor overlay** (`src/ui/cursor_overlay.rs`) -- Layout-backed cursor positioning for root sequences, fractions, scripts, radicals, parens, and matrix cells, with a visual-width fallback
-- **Click-to-place cursor** (`src/ui/math_widget.rs`) -- Clicks focus the editor and place the cursor at the nearest rendered insertion point; hit testing uses render-space x/y distances for supported compound nodes
-- **egui widget** (`src/ui/math_widget.rs`) -- Focus, keyboard input, cursor blink, texture display, and cursor placement
-- **Matrices and environments** -- Core AST, cursor navigation, insertion API, LaTeX serialization, and mapping support for `matrix`, `pmatrix`, `bmatrix`, `Bmatrix`, `vmatrix`, `Vmatrix`, and `smallmatrix`
+- **Click-to-place cursor** (`src/ui/cursor_overlay.rs`) -- MathQuill-style recursive seek through RaTeX layout boxes for fractions, scripts, radicals, left-right delimiters, and matrices; brute-force fallback for edge cases
+- **Drag-to-select** (`src/ui/math_widget.rs`) -- Click-and-drag creates same-Seq selections using a drag anticursor
+- **egui widget** (`src/ui/math_widget.rs`) -- Focus, keyboard input, cursor blink, texture display, cursor placement, and drag selection
+- **Matrices and environments** -- Core AST, cursor navigation, insertion API, LaTeX serialization, mapping support, and toolbar buttons for `matrix`, `pmatrix`, `bmatrix`, `Bmatrix`, `vmatrix`, `Vmatrix`, and `smallmatrix`
 - **Tab / Shift+Tab navigation** -- Tab moves forward between fields in compound nodes (numerator→denominator, base→exponent→subscript, index→radicand); Shift+Tab moves backward
 - **Home/End keys** -- Jump to start/end of current sequence
 - **Undo/redo** (`src/editor/undo.rs`) -- Snapshot stack with 200-level depth, Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y
-- **Toolbar** (`src/app.rs`) -- Demo app buttons for fraction, superscript, subscript, sqrt, nth-root, parentheses, brackets, abs
-- **116 unit tests** across all modules
+- **Toolbar** (`src/app.rs`) -- Demo app buttons for fraction, superscript, subscript, sqrt, nth-root, parentheses, brackets, abs, 2×2 matrix, 3×3 matrix, and 2×2 determinant
+- **122 unit tests** across all modules
 
 ### Not yet implemented
 
-- **Full MathQuill-style seek behavior** -- Click hit testing is layout-backed and y-aware for supported structures, but exact recursive before/after behavior around compound bounds and drag selection are still pending
-- **Matrix UI controls** -- Core matrix AST/serialization/navigation exists, but toolbar or keyboard insertion controls are not yet wired into the demo UI
+- **Cross-depth drag selection** -- Drag selection works within a single Seq; dragging across different tree depths (e.g., from inside a fraction to outside) is not yet supported
 - **Display modes** -- Inline vs. display math sizing
 - **Accessibility** -- Screen reader support
 
@@ -144,7 +144,7 @@ The demo window has a toolbar, a math editor (click to focus and place the curso
 
 ### Testing the editor model
 
-Run all 116 tests:
+Run all 122 tests:
 
 ```bash
 cargo test
