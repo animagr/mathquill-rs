@@ -199,7 +199,7 @@ impl MathWidget {
             ui.painter().rect_filled(
                 sel_rect,
                 0.0,
-                egui::Color32::from_rgba_unmultiplied(66, 133, 244, 60),
+                egui::Color32::from_rgba_unmultiplied(190, 215, 244, 225),
             );
         }
     }
