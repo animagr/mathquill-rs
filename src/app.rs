@@ -1,7 +1,8 @@
 //! Demo application: a single math widget in an eframe window.
 
 use eframe::egui;
-use mathquill_rs::editor::tree::MatrixKind;
+// Matrix toolbar controls are hidden until matrix cell editing and hit testing are polished.
+// use mathquill_rs::editor::tree::MatrixKind;
 use mathquill_rs::ui::MathWidget;
 
 pub struct MathApp {
@@ -83,35 +84,39 @@ impl MathApp {
             }
         });
 
-        ui.horizontal(|ui| {
-            if ui
-                .button("2\u{00D7}2")
-                .on_hover_text("2\u{00D7}2 matrix (parenthesized)")
-                .clicked()
-            {
-                self.widget
-                    .editor_mut()
-                    .insert_matrix(MatrixKind::Parenthesized, 2, 2);
-            }
-            if ui
-                .button("3\u{00D7}3")
-                .on_hover_text("3\u{00D7}3 matrix (parenthesized)")
-                .clicked()
-            {
-                self.widget
-                    .editor_mut()
-                    .insert_matrix(MatrixKind::Parenthesized, 3, 3);
-            }
-            if ui
-                .button("|2\u{00D7}2|")
-                .on_hover_text("2\u{00D7}2 determinant")
-                .clicked()
-            {
-                self.widget
-                    .editor_mut()
-                    .insert_matrix(MatrixKind::Determinant, 2, 2);
-            }
-        });
+        // Matrix GUI is intentionally disabled for now. The editor internals still support
+        // matrix insertion/navigation, but the visible workflow needs more polish before
+        // exposing it in the demo toolbar again.
+        //
+        // ui.horizontal(|ui| {
+        //     if ui
+        //         .button("2\u{00D7}2")
+        //         .on_hover_text("2\u{00D7}2 matrix (parenthesized)")
+        //         .clicked()
+        //     {
+        //         self.widget
+        //             .editor_mut()
+        //             .insert_matrix(MatrixKind::Parenthesized, 2, 2);
+        //     }
+        //     if ui
+        //         .button("3\u{00D7}3")
+        //         .on_hover_text("3\u{00D7}3 matrix (parenthesized)")
+        //         .clicked()
+        //     {
+        //         self.widget
+        //             .editor_mut()
+        //             .insert_matrix(MatrixKind::Parenthesized, 3, 3);
+        //     }
+        //     if ui
+        //         .button("|2\u{00D7}2|")
+        //         .on_hover_text("2\u{00D7}2 determinant")
+        //         .clicked()
+        //     {
+        //         self.widget
+        //             .editor_mut()
+        //             .insert_matrix(MatrixKind::Determinant, 2, 2);
+        //     }
+        // });
     }
 }
 

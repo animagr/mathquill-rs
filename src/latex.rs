@@ -25,6 +25,7 @@ const ENV_CLOSE_WITH_SPACE: &str = "} ";
 const ENV_CLOSE: char = '}';
 const MATRIX_COLUMN_SEPARATOR: &str = " & ";
 const MATRIX_ROW_SEPARATOR: &str = " \\\\ ";
+const EMPTY_MATRIX_CELL_RENDER_LATEX: &str = "\\textcolor{gray}{\\square}";
 
 /// LaTeX output plus source mappings back to the editable math tree.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -116,11 +117,23 @@ pub fn to_latex_with_mapping(node: &MathNode) -> MappedLatex {
     writer.finish()
 }
 
+/// Serialize for interactive rendering, adding visual placeholders for empty fields.
+#[must_use]
+pub(crate) fn to_render_latex(node: &MathNode) -> String {
+    let mut writer = LatexMappingWriter {
+        render_empty_matrix_cells: true,
+        ..LatexMappingWriter::default()
+    };
+    writer.write_node(node, &[]);
+    writer.finish().into_latex()
+}
+
 #[derive(Default)]
 struct LatexMappingWriter {
     latex: String,
     node_spans: Vec<RenderedNodeSpan>,
     cursor_positions: Vec<RenderedCursorPosition>,
+    render_empty_matrix_cells: bool,
 }
 
 impl LatexMappingWriter {
@@ -257,16 +270,22 @@ impl LatexMappingWriter {
                     self.latex.push_str(MATRIX_COLUMN_SEPARATOR);
                 }
 
-                self.write_node(
-                    cell,
-                    &path_with_step(
-                        path,
-                        CursorStep::MatrixCell {
-                            row: row_index,
-                            col: col_index,
-                        },
-                    ),
+                let cell_path = path_with_step(
+                    path,
+                    CursorStep::MatrixCell {
+                        row: row_index,
+                        col: col_index,
+                    },
                 );
+
+                if self.render_empty_matrix_cells && cell.is_empty_seq() {
+                    let start = self.latex.len();
+                    self.record_cursor_position_at(&cell_path, 0, start);
+                    self.latex.push_str(EMPTY_MATRIX_CELL_RENDER_LATEX);
+                    self.record_node_span_at(&cell_path, start, self.latex.len());
+                } else {
+                    self.write_node(cell, &cell_path);
+                }
             }
         }
 
@@ -342,7 +361,7 @@ fn style_command(kind: StyleKind) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{to_latex, to_latex_with_mapping, MappedLatex, RenderedNodeSpan};
+    use super::{to_latex, to_latex_with_mapping, to_render_latex, MappedLatex, RenderedNodeSpan};
     use crate::editor::cursor::CursorStep;
     use crate::editor::tree::{BracketKind, MathNode, MatrixKind};
     use crate::editor::tree::{SymbolData, SymbolKind};
@@ -481,6 +500,33 @@ mod tests {
         assert_eq!(
             to_latex(&tree),
             "\\begin{pmatrix} a & b \\\\ c & d\\end{pmatrix}",
+        );
+    }
+
+    #[test]
+    fn render_latex_adds_empty_matrix_cell_placeholders() {
+        let tree = MathNode::matrix(MatrixKind::Parenthesized, 2, 2);
+
+        assert_eq!(
+            to_render_latex(&tree),
+            "\\begin{pmatrix} \\textcolor{gray}{\\square} & \\textcolor{gray}{\\square} \\\\ \\textcolor{gray}{\\square} & \\textcolor{gray}{\\square}\\end{pmatrix}",
+        );
+        assert_eq!(
+            to_latex(&tree),
+            "\\begin{pmatrix}  &  \\\\  & \\end{pmatrix}",
+        );
+    }
+
+    #[test]
+    fn render_latex_keeps_filled_matrix_cells() {
+        let tree = MathNode::Matrix {
+            kind: MatrixKind::Parenthesized,
+            cells: vec![vec![MathNode::Seq(vec![sym("a")]), MathNode::empty_seq()]],
+        };
+
+        assert_eq!(
+            to_render_latex(&tree),
+            "\\begin{pmatrix} a & \\textcolor{gray}{\\square}\\end{pmatrix}",
         );
     }
 

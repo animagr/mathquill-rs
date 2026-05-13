@@ -76,7 +76,8 @@ pub(crate) fn cursor_position_for_rect(
 
     if let Some(rendered) = rendered {
         let layout_offset = layout_cursor_offset(&editor.root, &editor.cursor, rendered);
-        let anchor = layout_cursor_anchor(&editor.root, &editor.cursor, rendered, AnchorMode::Display);
+        let anchor =
+            layout_cursor_anchor(&editor.root, &editor.cursor, rendered, AnchorMode::Display);
 
         if let Some(offset) = layout_offset {
             let width = f64_to_f32(
@@ -86,12 +87,10 @@ pub(crate) fn cursor_position_for_rect(
                     .max(rendered.layout_box().width),
             );
             if width > 0.0 {
-                let x = content_rect.left()
-                    + (f64_to_f32(offset) * content_rect.width() / width);
-                let (top, bottom) = anchor.map_or(
-                    (rect.top() + 4.0, rect.bottom() - 4.0),
-                    |a| layout_y_to_screen(a, rendered, content_rect, rect),
-                );
+                let x = content_rect.left() + (f64_to_f32(offset) * content_rect.width() / width);
+                let (top, bottom) = anchor.map_or((rect.top() + 4.0, rect.bottom() - 4.0), |a| {
+                    layout_y_to_screen(a, rendered, content_rect, rect)
+                });
                 return CursorPosition {
                     x: x.clamp(content_rect.left(), content_rect.right()),
                     top,
@@ -103,7 +102,6 @@ pub(crate) fn cursor_position_for_rect(
 
     fallback_cursor_position(&editor.root, &editor.cursor, content_rect)
 }
-
 
 fn layout_y_to_screen(
     anchor: CursorAnchor,
@@ -154,12 +152,10 @@ pub(crate) fn cursor_position_for_path(
                     .max(rendered.layout_box().width),
             );
             if width > 0.0 {
-                let x = content_rect.left()
-                    + (f64_to_f32(offset) * content_rect.width() / width);
-                let (top, bottom) = anchor.map_or(
-                    (rect.top() + 4.0, rect.bottom() - 4.0),
-                    |a| layout_y_to_screen(a, rendered, content_rect, rect),
-                );
+                let x = content_rect.left() + (f64_to_f32(offset) * content_rect.width() / width);
+                let (top, bottom) = anchor.map_or((rect.top() + 4.0, rect.bottom() - 4.0), |a| {
+                    layout_y_to_screen(a, rendered, content_rect, rect)
+                });
                 return CursorPosition {
                     x: x.clamp(content_rect.left(), content_rect.right()),
                     top,
@@ -257,7 +253,8 @@ fn closest_layout_cursor(
 
     for position in mapped.cursor_positions() {
         let cursor = Cursor::from_path(position.path().to_vec());
-        let Some(anchor) = layout_cursor_anchor(root, &cursor, rendered, AnchorMode::HitTest) else {
+        let Some(anchor) = layout_cursor_anchor(root, &cursor, rendered, AnchorMode::HitTest)
+        else {
             continue;
         };
         let distance = anchor.distance_to(layout_x, layout_y);
@@ -345,8 +342,7 @@ fn seek_in_seq(
             scale: context.scale,
         };
 
-        if let Some(path) = seek_into_compound(child, cl.layout_box, x, y, child_ctx, &prefix, i)
-        {
+        if let Some(path) = seek_into_compound(child, cl.layout_box, x, y, child_ctx, &prefix, i) {
             return Some(path);
         }
 
@@ -525,7 +521,8 @@ fn seek_into_scripts(
         let exp_lb = exponent_layout.as_ref()?;
         let exp_node = exponent_node?;
         let exp_abs_x = if *center_scripts {
-            context.x + (centered_child_x(layout_box.width, exp_lb.width, *sup_scale) * context.scale)
+            context.x
+                + (centered_child_x(layout_box.width, exp_lb.width, *sup_scale) * context.scale)
         } else {
             base_abs_x + ((base_box.width + italic_correction) * context.scale)
         };
@@ -636,8 +633,7 @@ fn seek_into_leftright(
     };
 
     let inner_abs_left = context.x + (left.width * context.scale);
-    let inner_abs_right =
-        context.x + ((left.width + inner.width) * context.scale);
+    let inner_abs_right = context.x + ((left.width + inner.width) * context.scale);
 
     if x < inner_abs_left || x > inner_abs_right {
         return None;
@@ -687,8 +683,7 @@ fn seek_into_matrix(
     let mut best_col_dist = f64::MAX;
     for col_idx in 0..num_cols {
         if let Some(cl) = matrix_cell_layout(layout_box, best_row, col_idx, context) {
-            let mid_x =
-                cl.context.x + (cl.layout_box.width * cl.context.scale / 2.0);
+            let mid_x = cl.context.x + (cl.layout_box.width * cl.context.scale / 2.0);
             let dist = (x - mid_x).abs();
             if dist < best_col_dist {
                 best_col_dist = dist;
@@ -820,7 +815,9 @@ fn anchor_for_path(
 
     if remaining.is_empty() {
         let (height, depth) = neighbor_height_depth(children, layout_box, pos);
-        return Some(cursor_anchor_with_dims(local_x, height, depth, context, mode));
+        return Some(cursor_anchor_with_dims(
+            local_x, height, depth, context, mode,
+        ));
     }
 
     let child = children.get(pos)?;
@@ -842,11 +839,7 @@ fn anchor_for_path(
     )
 }
 
-fn neighbor_height_depth(
-    children: &[MathNode],
-    layout_box: &LayoutBox,
-    pos: usize,
-) -> (f64, f64) {
+fn neighbor_height_depth(children: &[MathNode], layout_box: &LayoutBox, pos: usize) -> (f64, f64) {
     if children.is_empty() {
         return (layout_box.height, layout_box.depth);
     }
@@ -898,15 +891,30 @@ fn slot_cursor_anchor(
     mode: AnchorMode,
 ) -> Option<CursorAnchor> {
     match (node, slot) {
-        (MathNode::Fraction { num, .. }, CursorStep::Numerator) => {
-            fraction_slot_anchor(layout_box, num, path, FractionSlot::Numerator, context, mode)
-        }
-        (MathNode::Fraction { den, .. }, CursorStep::Denominator) => {
-            fraction_slot_anchor(layout_box, den, path, FractionSlot::Denominator, context, mode)
-        }
-        (MathNode::Sqrt { radicand, .. }, CursorStep::Radicand) => {
-            radical_slot_anchor(layout_box, radicand, path, RadicalSlot::Radicand, context, mode)
-        }
+        (MathNode::Fraction { num, .. }, CursorStep::Numerator) => fraction_slot_anchor(
+            layout_box,
+            num,
+            path,
+            FractionSlot::Numerator,
+            context,
+            mode,
+        ),
+        (MathNode::Fraction { den, .. }, CursorStep::Denominator) => fraction_slot_anchor(
+            layout_box,
+            den,
+            path,
+            FractionSlot::Denominator,
+            context,
+            mode,
+        ),
+        (MathNode::Sqrt { radicand, .. }, CursorStep::Radicand) => radical_slot_anchor(
+            layout_box,
+            radicand,
+            path,
+            RadicalSlot::Radicand,
+            context,
+            mode,
+        ),
         (
             MathNode::Sqrt {
                 index: Some(index), ..
@@ -1372,8 +1380,13 @@ fn matrix_slot_offset(
         scale: 1.0,
     };
     let cell_layout = matrix_cell_layout(layout_box, row, col, context)?;
-    let local_anchor =
-        anchor_for_path(node, cell_layout.layout_box, path, cell_layout.context, AnchorMode::HitTest)?;
+    let local_anchor = anchor_for_path(
+        node,
+        cell_layout.layout_box,
+        path,
+        cell_layout.context,
+        AnchorMode::HitTest,
+    )?;
 
     Some(local_anchor.x)
 }
@@ -1388,7 +1401,13 @@ fn matrix_slot_anchor(
     mode: AnchorMode,
 ) -> Option<CursorAnchor> {
     let cell_layout = matrix_cell_layout(layout_box, row, col, context)?;
-    anchor_for_path(node, cell_layout.layout_box, path, cell_layout.context, mode)
+    anchor_for_path(
+        node,
+        cell_layout.layout_box,
+        path,
+        cell_layout.context,
+        mode,
+    )
 }
 
 fn matrix_cell_layout(
@@ -2020,8 +2039,7 @@ mod tests {
         let rendered = cache.render(&editor.to_latex()).unwrap();
 
         let quarter_x = rendered.layout_box().width * 0.25;
-        let cursor =
-            seek_recursive(&editor.root, rendered, quarter_x, 10.0).unwrap();
+        let cursor = seek_recursive(&editor.root, rendered, quarter_x, 10.0).unwrap();
         let pos = cursor.seq_pos();
         assert!(
             pos <= 1,

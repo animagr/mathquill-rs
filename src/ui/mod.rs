@@ -5,3 +5,4 @@ pub mod math_widget;
 pub mod renderer;
 
 pub use math_widget::MathWidget;
+pub use renderer::DisplayMode;

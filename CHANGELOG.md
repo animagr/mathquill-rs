@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-05-13
+
+### Added
+
+- Added `DisplayMode::{Inline, Display}` for top-level math layout, mapped to RaTeX text/display styles and exposed through `MathWidget` configuration.
+- `RenderCache` now keys cached output by both LaTeX and display mode, with tests covering display-mode invalidation.
+
+### Fixed
+
+- Empty matrix cells now render with gray square placeholders in the interactive widget, while exported/editor LaTeX remains blank.
+- Hid matrix insertion buttons from the demo toolbar until matrix editing is polished enough for regular use.
+
 ## [0.1.5] - 2026-05-13
 
 ### Fixed

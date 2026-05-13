@@ -3,7 +3,7 @@
 use egui::{Key, TextureHandle, TextureOptions};
 
 use super::cursor_overlay::{cursor_for_point, cursor_position_for_path, cursor_position_for_rect};
-use super::renderer::{png_to_color_image, RenderCache};
+use super::renderer::{png_to_color_image, DisplayMode, RenderCache};
 use crate::editor::cursor::Cursor;
 use crate::editor::selection::Selection;
 use crate::editor::Editor;
@@ -36,6 +36,13 @@ impl MathWidget {
         }
     }
 
+    /// Create a math widget configured with the given top-level display mode.
+    #[must_use]
+    pub fn with_display_mode(mut self, display_mode: DisplayMode) -> Self {
+        self.set_display_mode(display_mode);
+        self
+    }
+
     /// Access the underlying editor.
     #[must_use]
     pub fn editor(&self) -> &Editor {
@@ -45,6 +52,22 @@ impl MathWidget {
     /// Mutable access to the underlying editor.
     pub fn editor_mut(&mut self) -> &mut Editor {
         &mut self.editor
+    }
+
+    /// The top-level display mode used when rendering this widget.
+    #[must_use]
+    pub fn display_mode(&self) -> DisplayMode {
+        self.render_cache.display_mode()
+    }
+
+    /// Set the top-level display mode used when rendering this widget.
+    pub fn set_display_mode(&mut self, display_mode: DisplayMode) {
+        if self.display_mode() == display_mode {
+            return;
+        }
+
+        self.render_cache.set_display_mode(display_mode);
+        self.texture = None;
     }
 
     /// Show the math widget in the given UI area.
@@ -57,8 +80,7 @@ impl MathWidget {
                 egui::vec2(s.x * 0.5, s.y * 0.5)
             });
 
-        let (rect, response) =
-            ui.allocate_exact_size(desired_size, egui::Sense::click_and_drag());
+        let (rect, response) = ui.allocate_exact_size(desired_size, egui::Sense::click_and_drag());
 
         self.ensure_rendered(ui);
 
@@ -137,11 +159,8 @@ impl MathWidget {
                     egui::StrokeKind::Outside,
                 );
 
-                let cursor_pos = cursor_position_for_rect(
-                    &self.editor,
-                    self.render_cache.last_rendered(),
-                    rect,
-                );
+                let cursor_pos =
+                    cursor_position_for_rect(&self.editor, self.render_cache.last_rendered(), rect);
 
                 self.draw_selection_highlight(ui, rect, cursor_pos);
 
@@ -170,8 +189,7 @@ impl MathWidget {
         let Some(sel) = &self.editor.selection else {
             return;
         };
-        if !sel.is_same_seq(&self.editor.cursor) || !sel.is_nonempty(self.editor.cursor.seq_pos())
-        {
+        if !sel.is_same_seq(&self.editor.cursor) || !sel.is_nonempty(self.editor.cursor.seq_pos()) {
             return;
         }
 
@@ -192,10 +210,8 @@ impl MathWidget {
         if (right - left) > 0.5 {
             let top = cursor_pos.top().min(anchor_pos.top());
             let bottom = cursor_pos.bottom().max(anchor_pos.bottom());
-            let sel_rect = egui::Rect::from_min_max(
-                egui::pos2(left, top),
-                egui::pos2(right, bottom),
-            );
+            let sel_rect =
+                egui::Rect::from_min_max(egui::pos2(left, top), egui::pos2(right, bottom));
             ui.painter().rect_filled(
                 sel_rect,
                 0.0,
@@ -303,7 +319,8 @@ impl MathWidget {
         }
 
         let latex = self.editor.to_latex();
-        match self.render_cache.render(&latex) {
+        let render_latex = crate::latex::to_render_latex(&self.editor.root);
+        match self.render_cache.render(&render_latex) {
             Ok(rendered) => match png_to_color_image(rendered.png_bytes()) {
                 Ok(image) => {
                     let tex = ui

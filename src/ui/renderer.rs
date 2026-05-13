@@ -7,9 +7,29 @@ use ratex_parser::parser::parse;
 use ratex_render::{render_to_png, RenderOptions};
 use ratex_types::color::Color;
 use ratex_types::display_item::DisplayList;
+use ratex_types::math_style::MathStyle;
 
 #[cfg(test)]
 const LATEX_AUTO_SYMBOL_WITH_TYPED_SPACE: &str = "\\alpha \\,";
+
+/// The top-level math style used when laying out an expression.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum DisplayMode {
+    /// Inline math, laid out with `RaTeX`'s text style.
+    Inline,
+    /// Display math, laid out with `RaTeX`'s display style.
+    #[default]
+    Display,
+}
+
+impl DisplayMode {
+    fn math_style(self) -> MathStyle {
+        match self {
+            Self::Inline => MathStyle::Text,
+            Self::Display => MathStyle::Display,
+        }
+    }
+}
 
 /// Render settings that affect the final PNG coordinate space.
 #[derive(Debug, Clone, Copy)]
@@ -56,6 +76,7 @@ pub struct RenderedMath {
     layout_box: LayoutBox,
     display_list: DisplayList,
     metrics: RenderMetrics,
+    display_mode: DisplayMode,
 }
 
 impl RenderedMath {
@@ -82,14 +103,27 @@ impl RenderedMath {
     pub fn metrics(&self) -> RenderMetrics {
         self.metrics
     }
+
+    /// Top-level display mode used to produce this output.
+    #[must_use]
+    pub fn display_mode(&self) -> DisplayMode {
+        self.display_mode
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RenderCacheKey {
+    latex: String,
+    display_mode: DisplayMode,
 }
 
 /// Cached render state: avoids re-rendering when the LaTeX hasn't changed.
 pub struct RenderCache {
-    last_latex: String,
+    last_key: Option<RenderCacheKey>,
     last_rendered: Option<RenderedMath>,
     render_opts: RenderOptions,
     layout_opts: LayoutOptions,
+    display_mode: DisplayMode,
 }
 
 impl RenderCache {
@@ -97,7 +131,7 @@ impl RenderCache {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            last_latex: String::new(),
+            last_key: None,
             last_rendered: None,
             render_opts: RenderOptions {
                 font_size: 40.0,
@@ -107,6 +141,7 @@ impl RenderCache {
                 background_color: Color::WHITE,
             },
             layout_opts: LayoutOptions::default(),
+            display_mode: DisplayMode::default(),
         }
     }
 
@@ -117,7 +152,12 @@ impl RenderCache {
     ///
     /// Returns an error if parsing or rendering the LaTeX fails.
     pub fn render(&mut self, latex: &str) -> Result<&RenderedMath> {
-        let cache_hit = latex == self.last_latex && self.last_rendered.is_some();
+        let key = RenderCacheKey {
+            latex: latex.to_string(),
+            display_mode: self.display_mode,
+        };
+
+        let cache_hit = self.last_key.as_ref() == Some(&key) && self.last_rendered.is_some();
         if cache_hit {
             return self
                 .last_rendered
@@ -125,8 +165,9 @@ impl RenderCache {
                 .context("render cache was marked as a hit but was empty");
         }
 
-        let rendered = render_latex(latex, &self.layout_opts, &self.render_opts)?;
-        self.last_latex = latex.to_string();
+        let layout_opts = self.layout_opts.with_style(self.display_mode.math_style());
+        let rendered = render_latex(latex, &layout_opts, &self.render_opts, self.display_mode)?;
+        self.last_key = Some(key);
         self.last_rendered = Some(rendered);
 
         self.last_rendered
@@ -140,17 +181,36 @@ impl RenderCache {
         self.last_rendered.as_ref()
     }
 
+    /// The top-level display mode used for future renders.
+    #[must_use]
+    pub fn display_mode(&self) -> DisplayMode {
+        self.display_mode
+    }
+
+    /// Set the top-level display mode.
+    pub fn set_display_mode(&mut self, display_mode: DisplayMode) {
+        if self.display_mode == display_mode {
+            return;
+        }
+
+        self.display_mode = display_mode;
+        self.invalidate();
+    }
+
     /// Set the font size (user units per em).
     pub fn set_font_size(&mut self, size: f32) {
         self.render_opts.font_size = size;
-        self.last_latex.clear();
-        self.last_rendered = None;
+        self.invalidate();
     }
 
     /// Set the device pixel ratio for high-DPI rendering.
     pub fn set_dpr(&mut self, dpr: f32) {
         self.render_opts.device_pixel_ratio = dpr;
-        self.last_latex.clear();
+        self.invalidate();
+    }
+
+    fn invalidate(&mut self) {
+        self.last_key = None;
         self.last_rendered = None;
     }
 }
@@ -166,9 +226,10 @@ fn render_latex(
     latex: &str,
     layout_opts: &LayoutOptions,
     render_opts: &RenderOptions,
+    display_mode: DisplayMode,
 ) -> Result<RenderedMath> {
     if latex.is_empty() {
-        return render_latex("{}", layout_opts, render_opts);
+        return render_latex("{}", layout_opts, render_opts, display_mode);
     }
 
     let ast = parse(latex)
@@ -187,6 +248,7 @@ fn render_latex(
         layout_box,
         display_list,
         metrics: RenderMetrics::from_options(render_opts),
+        display_mode,
     })
 }
 
@@ -209,7 +271,9 @@ pub fn png_to_color_image(png_bytes: &[u8]) -> Result<egui::ColorImage> {
 
 #[cfg(test)]
 mod tests {
-    use super::{RenderCache, LATEX_AUTO_SYMBOL_WITH_TYPED_SPACE};
+    use super::{DisplayMode, RenderCache, LATEX_AUTO_SYMBOL_WITH_TYPED_SPACE};
+    use crate::editor::tree::{MathNode, MatrixKind};
+    use crate::latex::to_render_latex;
 
     #[test]
     fn render_simple_expression() {
@@ -262,5 +326,45 @@ mod tests {
 
         assert!(rendered.metrics().font_size() > 0.0);
         assert!(rendered.metrics().device_pixel_ratio() > 0.0);
+    }
+
+    #[test]
+    fn render_uses_display_mode() {
+        let mut cache = RenderCache::new();
+        cache.set_display_mode(DisplayMode::Inline);
+
+        let rendered = cache.render("\\sum_{n=1}^{\\infty}").unwrap();
+
+        assert_eq!(rendered.display_mode(), DisplayMode::Inline);
+    }
+
+    #[test]
+    fn render_empty_matrix_cells_with_placeholders() {
+        let mut cache = RenderCache::new();
+        let latex = to_render_latex(&MathNode::matrix(MatrixKind::Parenthesized, 2, 2));
+
+        let rendered = cache.render(&latex).unwrap();
+
+        assert!(rendered.layout_box().width > 0.0);
+        assert!(!rendered.display_list().items.is_empty());
+    }
+
+    #[test]
+    fn display_mode_change_invalidates_cache() {
+        let mut cache = RenderCache::new();
+        let display = cache.render("\\sum_{n=1}^{\\infty}").unwrap();
+        let display_height = display.layout_box().height;
+        let display_depth = display.layout_box().depth;
+
+        cache.set_display_mode(DisplayMode::Inline);
+        assert!(cache.last_rendered.is_none());
+
+        let inline = cache.render("\\sum_{n=1}^{\\infty}").unwrap();
+
+        assert_eq!(inline.display_mode(), DisplayMode::Inline);
+        assert!(
+            (display_height - inline.layout_box().height).abs() > f64::EPSILON
+                || (display_depth - inline.layout_box().depth).abs() > f64::EPSILON
+        );
     }
 }

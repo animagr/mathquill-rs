@@ -1,6 +1,6 @@
 # mathquill-rs
 
-A native Rust WYSIWYG math editor inspired by [MathQuill](https://github.com/mathquill/mathquill), using [RaTeX](https://github.com/erweixin/RaTeX) for rendering and [egui](https://github.com/emilk/egui) for the desktop UI.
+A native Rust What You See Is What You Get (WYSIWYG) math editor inspired by [MathQuill](https://github.com/mathquill/mathquill), using [RaTeX](https://github.com/erweixin/RaTeX) for rendering and [egui](https://github.com/emilk/egui) for the desktop UI.
 
 Users type math formulas with structured cursor navigation -- moving into and out of fractions, superscripts, subscripts, square roots, and parentheses -- just like MathQuill, but with no DOM, no JavaScript, and no browser dependency.
 
@@ -79,6 +79,7 @@ The `RenderCache` in `src/ui/renderer.rs` caches the last rendered LaTeX string 
 - **Auto-structures** -- Typing `sqrt` creates `\sqrt{}` with cursor inside, `abs` creates `|...|`, `norm` creates `||...||`, `sum`/`prod` creates large operators with subscript, `int` creates `\int`
 - **LaTeX serializer** (`src/latex.rs`) -- Full round-trip from AST to LaTeX string, plus mapped node spans and cursor insertion positions
 - **RaTeX rendering** (`src/ui/renderer.rs`) -- Cached render pipeline with PNG output, layout boxes, display-list metadata, and render metrics
+- **Display modes** -- `DisplayMode::Inline` and `DisplayMode::Display` map to RaTeX text/display styles and are configurable through `MathWidget`
 - **Cursor overlay** (`src/ui/cursor_overlay.rs`) -- Layout-backed cursor positioning for root sequences, fractions, scripts, radicals, parens, and matrix cells, with a visual-width fallback
 - **Click-to-place cursor** (`src/ui/cursor_overlay.rs`) -- MathQuill-style recursive seek through RaTeX layout boxes for fractions, scripts, radicals, left-right delimiters, and matrices; brute-force fallback for edge cases
 - **Drag-to-select** (`src/ui/math_widget.rs`) -- Click-and-drag creates same-Seq selections using a drag anticursor
@@ -87,14 +88,13 @@ The `RenderCache` in `src/ui/renderer.rs` caches the last rendered LaTeX string 
 - **Tab / Shift+Tab navigation** -- Tab moves forward between fields in compound nodes (numerator→denominator, base→exponent→subscript, index→radicand); Shift+Tab moves backward
 - **Home/End keys** -- Jump to start/end of current sequence
 - **Undo/redo** (`src/editor/undo.rs`) -- Snapshot stack with 200-level depth, Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y
-- **Toolbar** (`src/app.rs`) -- Demo app buttons for fraction, superscript, subscript, sqrt, nth-root, parentheses, brackets, abs, 2×2 matrix, 3×3 matrix, and 2×2 determinant
-- **122 unit tests** across all modules
+- **Toolbar** (`src/app.rs`) -- Demo app buttons for fraction, superscript, subscript, sqrt, nth-root, parentheses, brackets, and abs
+- **127 unit tests** across all modules
 
 ### Not yet implemented
 
 - **Cross-depth drag selection** -- Drag selection works within a single Seq; dragging across different tree depths (e.g., from inside a fraction to outside) is not yet supported
-- **Display modes** -- Inline vs. display math sizing
-- **Accessibility** -- Screen reader support
+- **Matrix GUI editing** -- Matrix AST, serialization, and navigation exist, but the demo GUI insertion controls are hidden until cell editing and hit testing are polished
 
 ## Prerequisites
 
@@ -144,7 +144,7 @@ The demo window has a toolbar, a math editor (click to focus and place the curso
 
 ### Testing the editor model
 
-Run all 122 tests:
+Run all 127 tests:
 
 ```bash
 cargo test
