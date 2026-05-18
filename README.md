@@ -4,6 +4,14 @@ A native Rust What You See Is What You Get (WYSIWYG) math editor inspired by [Ma
 
 Users type math formulas with structured cursor navigation -- moving into and out of fractions, superscripts, subscripts, square roots, and parentheses -- just like MathQuill, but with no DOM, no JavaScript, and no browser dependency.
 
+[![Version](https://img.shields.io/github/v/release/animagr/engineeringpapyr)](https://github.com/animagr/mathquill-rs/releases)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+![GitHub last commit](https://img.shields.io/github/last-commit/animagr/mathquill-rs/main)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/m/animagr/mathquill-rs/main)
+![GitHub Issues](https://img.shields.io/github/issues/animagr/mathquill-rs)
+
+![mathquill-rs](Screenshot1.png)
+
 ## Architecture
 
 ```

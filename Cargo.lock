@@ -2801,6 +2801,7 @@ name = "ratex-unicode-font"
 version = "0.1.6"
 dependencies = [
  "fontdb",
+ "system-fonts",
  "ttf-parser",
 ]
 
@@ -3314,6 +3315,25 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "sys-locale"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8eab9a99a024a169fe8a903cf9d4a3b3601109bcc13bd9e3c6fff259138626c4"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "system-fonts"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f369feb844d5e08bb4e938c3f88ff359261bc94c7553ddb34e174447120b64d6"
+dependencies = [
+ "fontdb",
+ "sys-locale",
 ]
 
 [[package]]
