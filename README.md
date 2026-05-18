@@ -1,4 +1,4 @@
-# mathquill-rs
+![mathquill-rs](header.png)
 
 A native Rust What You See Is What You Get (WYSIWYG) math editor inspired by [MathQuill](https://github.com/mathquill/mathquill), using [RaTeX](https://github.com/erweixin/RaTeX) for rendering and [egui](https://github.com/emilk/egui) for the desktop UI.
 
